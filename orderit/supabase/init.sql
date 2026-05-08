@@ -234,3 +234,6 @@ create index if not exists idx_messages_receiver_id on public.messages(receiver_
 create index if not exists idx_notifications_user_id on public.notifications(user_id);
 create index if not exists idx_notifications_is_read on public.notifications(is_read);
 create index if not exists idx_notifications_created_at on public.notifications(created_at);
+
+-- Enable realtime for messages table
+alter publication supabase_realtime add table public.messages;

@@ -142,6 +142,9 @@ export function Navbar() {
                 </button>
                 {profileOpen ? (
                   <div className="absolute right-0 mt-3 w-52 rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-lg">
+                    <Link href="/main/messages" className="block px-4 py-3 text-sm hover:bg-slate-100">
+                      Messages
+                    </Link>
                     <Link href="/main/orders" className="block px-4 py-3 text-sm hover:bg-slate-100">
                       My Orders
                     </Link>
@@ -211,6 +214,9 @@ export function Navbar() {
             </details>
             {user ? (
               <div className="space-y-2 rounded-3xl border border-slate-200 bg-slate-50 p-3">
+                <Link href="/main/messages" className="block rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
+                  Messages
+                </Link>
                 <Link href="/main/orders" className="block rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
                   My Orders
                 </Link>

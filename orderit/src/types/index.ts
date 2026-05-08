@@ -102,6 +102,35 @@ export interface Message {
   created_at: Date;
 }
 
+export interface MessageWithRelations extends Message {
+  sender?: User & {
+    vendor_profiles?: {
+      shop_name?: string;
+      logo_url?: string;
+    }[];
+  };
+  receiver?: User & {
+    vendor_profiles?: {
+      shop_name?: string;
+      logo_url?: string;
+    }[];
+  };
+  order?: {
+    id: string;
+  };
+}
+
+export interface ConversationPreview {
+  otherUserId: string;
+  displayName: string;
+  avatarUrl?: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  orderId?: string;
+  role: "buyer" | "vendor" | "admin";
+}
+
 export interface Notification {
   id: string;
   user_id: string;

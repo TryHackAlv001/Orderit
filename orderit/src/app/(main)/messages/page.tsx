@@ -45,7 +45,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-200px)] bg-gray-50">
+    <div className="flex h-screen bg-gray-50">
       {/* Conversation List */}
       <div className={`${isMobile ? (showChat ? 'hidden' : 'w-full') : 'w-1/3'} border-r border-gray-200`}>
         <ConversationList
