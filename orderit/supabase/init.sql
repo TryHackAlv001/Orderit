@@ -237,3 +237,6 @@ create index if not exists idx_notifications_created_at on public.notifications(
 
 -- Enable realtime for messages table
 alter publication supabase_realtime add table public.messages;
+
+-- Enable realtime for notifications table
+alter publication supabase_realtime add table public.notifications;
