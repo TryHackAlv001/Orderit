@@ -1,73 +1,124 @@
 'use client';
 
+import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Home, Search, ShoppingCart, User, Package, ShoppingBag } from "lucide-react";
+import { Home, Menu, Package, Search, ShoppingBag, ShoppingCart, User, X } from "lucide-react";
+
+interface BottomTab {
+  icon: typeof Home;
+  label: string;
+  href: string;
+  badge?: number;
+}
 
 export function BottomNav() {
   const { user, profile } = useAuthStore();
-  const cartCount = useCartStore((state) => state.items.length);
+  const cartCount = useCartStore((state) => state.items.reduce((count, item) => count + item.quantity, 0));
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  if (!user) return null;
+  useEffect(() => {
+    const handleMenuState = (event: Event) => {
+      setMenuOpen((event as CustomEvent<{ open: boolean }>).detail.open);
+    };
+    const handleNotificationState = (event: Event) => {
+      setUnreadCount((event as CustomEvent<{ unreadCount: number }>).detail.unreadCount);
+    };
+    window.addEventListener("navbar-navigation-state", handleMenuState);
+    window.addEventListener("navbar-notifications-state", handleNotificationState);
+    return () => {
+      window.removeEventListener("navbar-navigation-state", handleMenuState);
+      window.removeEventListener("navbar-notifications-state", handleNotificationState);
+    };
+  }, []);
 
-  const isBuyer = user.role === "buyer";
-  const isVendor = user.role === "vendor";
-
-  const buyerTabs: Array<{ icon: typeof Home; label: string; href: string; color: string; badge?: number }> = [
-    { icon: Home, label: "Home", href: "/marketplace", color: "text-muted" },
-    { icon: Search, label: "Search", href: "/marketplace/search", color: "text-muted" },
-    { icon: ShoppingCart, label: "Cart", href: "/cart", color: "text-muted", badge: cartCount },
-    { icon: User, label: "Profile", href: "/buyer/profile", color: "text-muted" },
+  const isBuyer = user?.role === "buyer";
+  const isVendor = user?.role === "vendor";
+  const buyerTabs: BottomTab[] = [
+    { icon: Home, label: "Home", href: "/marketplace" },
+    { icon: Search, label: "Search", href: "/marketplace/search" },
+    { icon: User, label: "You", href: user ? "/buyer/profile" : "/login" },
+    { icon: ShoppingCart, label: "Cart", href: "/cart", badge: cartCount },
   ];
-
-  const vendorTabs: Array<{ icon: typeof Home; label: string; href: string; color: string; badge?: number }> = [
-    { icon: Home, label: "Dashboard", href: "/vendor/dashboard", color: "text-muted" },
-    { icon: Package, label: "Products", href: "/vendor/products", color: "text-muted" },
-    { icon: ShoppingBag, label: "Orders", href: "/vendor/orders", color: "text-muted" },
-    { icon: ShoppingBag, label: "My Store", href: profile?.id ? `/vendor/${profile.id}/store` : "#", color: "text-muted" },
+  const vendorTabs: BottomTab[] = [
+    { icon: Home, label: "Dashboard", href: "/vendor/dashboard" },
+    { icon: Package, label: "Products", href: "/vendor/products" },
+    { icon: ShoppingBag, label: "Orders", href: "/vendor/orders" },
+    { icon: ShoppingBag, label: "My Store", href: profile?.id ? `/vendor/${profile.id}/store` : "#" },
   ];
-
-  const tabs = isBuyer ? buyerTabs : vendorTabs;
+  const guestTabs: BottomTab[] = [
+    { icon: Home, label: "Home", href: "/marketplace" },
+    { icon: Search, label: "Search", href: "/marketplace/search" },
+    { icon: User, label: "You", href: "/login" },
+    { icon: ShoppingCart, label: "Cart", href: "/cart", badge: cartCount },
+  ];
+  const tabs = isBuyer ? buyerTabs : isVendor ? vendorTabs : guestTabs;
 
   const isActive = (href: string) => {
-    if (href === "/marketplace" || href === "/marketplace/search") {
-      return pathname?.startsWith("/marketplace") && pathname !== "/marketplace/search" && href === "/marketplace";
+    if (href === "/marketplace") {
+      return pathname?.startsWith("/marketplace") && !pathname.startsWith("/marketplace/search");
     }
-    if (href === "/marketplace/search") {
-      return pathname?.startsWith("/marketplace/search");
-    }
-    return pathname === href;
+    if (href === "/marketplace/search") return pathname?.startsWith("/marketplace/search");
+    if (href === "/login") return pathname === "/login";
+    if (href === "#") return false;
+    return pathname === href || pathname?.startsWith(`${href}/`);
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface md:hidden" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}>
-      <div className="flex items-center justify-around">
+    <nav
+      aria-label="Mobile navigation"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface pb-[max(env(safe-area-inset-bottom),0px)] md:hidden"
+    >
+      <div className="flex min-h-16 items-stretch">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = isActive(tab.href);
           return (
             <Link
-              key={tab.href}
+              key={tab.label}
               href={tab.href}
-              className={`relative flex flex-1 flex-col items-center justify-center gap-1 px-2 py-3 text-xs font-medium transition-colors ${
+              aria-current={active ? "page" : undefined}
+              className={`relative flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1 text-xs font-medium transition-colors ${
                 active ? "text-accent-text" : "text-muted hover:text-text"
               }`}
             >
-              <div className="relative">
+              <span className="relative">
                 <Icon className="h-6 w-6" />
-                {tab.badge && tab.badge > 0 && (
-                  <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-danger px-1 text-[0.65rem] font-bold text-accent-on">
+                {tab.badge !== undefined && tab.badge > 0 && (
+                  <span className="absolute -right-2 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[0.65rem] font-bold text-accent-on">
                     {tab.badge > 99 ? "99+" : tab.badge}
                   </span>
                 )}
-              </div>
-              <span className="line-clamp-1">{tab.label}</span>
+              </span>
+              <span className="max-w-full truncate">{tab.label}</span>
             </Link>
           );
         })}
+        <button
+          type="button"
+          data-mobile-menu-trigger
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-controls="navbar-mobile-navigation-menu"
+          aria-expanded={menuOpen}
+          onClick={() => window.dispatchEvent(new Event("navbar-navigation-toggle"))}
+          className={`relative flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1 text-xs font-medium transition-colors ${
+            menuOpen ? "text-accent-text" : "text-muted hover:text-text"
+          }`}
+        >
+          <span className="relative">
+            {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {unreadCount > 0 && (
+              <span className="absolute -right-2 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[0.65rem] font-bold text-accent-on">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </span>
+          <span>Menu</span>
+        </button>
       </div>
     </nav>
   );

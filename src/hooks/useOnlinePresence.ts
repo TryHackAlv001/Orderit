@@ -44,9 +44,9 @@ export function OnlinePresenceProvider({
         }
         if (data.user?.id !== userId) return;
 
-        const { error: trackError } = await channel.track({ user_id: userId });
-        if (trackError) {
-          console.error('Unable to publish user presence:', trackError);
+        const trackStatus = await channel.track({ user_id: userId });
+        if (trackStatus !== 'ok') {
+          console.error('Unable to publish user presence:', trackStatus);
         }
       });
 

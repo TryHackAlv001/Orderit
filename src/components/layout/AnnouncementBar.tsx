@@ -7,20 +7,23 @@ export function AnnouncementBar() {
   const [activeMessage, setActiveMessage] = useState(0);
 
   useEffect(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const interval = window.setInterval(() => {
-      setActiveMessage((current) => (current + 1) % MARKETPLACE_ANNOUNCEMENTS.length);
-    }, 5000);
+      if (!reducedMotion.matches) {
+        setActiveMessage((current) => (current + 1) % MARKETPLACE_ANNOUNCEMENTS.length);
+      }
+    }, window.matchMedia("(min-width: 768px)").matches ? 5000 : 4000);
 
     return () => window.clearInterval(interval);
   }, []);
 
   return (
-    <div className="bg-accent text-accent-on">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center px-4 py-2 text-center text-xs font-medium sm:px-6 sm:text-sm md:grid-cols-3">
+    <div className="fixed left-0 right-0 top-[65px] z-30 h-9 overflow-hidden bg-accent text-accent-on md:static md:z-auto md:h-auto md:overflow-visible">
+      <div className="flex h-full items-center justify-center overflow-hidden whitespace-nowrap px-4 text-center text-xs font-medium md:mx-auto md:grid md:h-auto md:max-w-7xl md:grid-cols-3 md:items-center md:overflow-visible md:px-6 md:py-2 md:whitespace-normal md:text-sm">
         {MARKETPLACE_ANNOUNCEMENTS.map((message, index) => (
           <p
             key={message.id}
-            className={`${index === 0 ? "md:text-left" : "md:text-center"} ${index === activeMessage ? "block" : "hidden md:block"}`}
+            className={`${index === 0 ? "md:text-left motion-reduce:block" : "md:text-center motion-reduce:hidden md:motion-reduce:block"} ${index === activeMessage ? "block motion-safe:animate-[announcement-fade_500ms_ease-in-out] md:animate-none" : "hidden md:block"}`}
           >
             {message.text}
           </p>
@@ -30,6 +33,13 @@ export function AnnouncementBar() {
       <span className="sr-only" aria-live="polite">
         {MARKETPLACE_ANNOUNCEMENTS[activeMessage]?.text}
       </span>
+      <style jsx>{`
+        @keyframes announcement-fade {
+          from { opacity: 0; transform: translateY(0.2rem); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+      `}</style>
     </div>
   );
 }
