@@ -463,7 +463,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
 
   return (
     <>
-    <header data-variant={variant} className={`sticky top-0 z-40 mb-9 border-b border-border shadow-sm backdrop-blur-xl md:mb-0 ${variant === "home" ? "navbar-home" : "bg-surface/95"}`}>
+    <header data-variant={variant} className={`fixed inset-x-0 top-0 z-40 border-b border-border shadow-sm backdrop-blur-xl md:sticky md:top-0 ${variant === "home" ? "navbar-home" : "bg-surface/95"}`}>
       <div className="relative mx-auto flex h-16 max-w-[1600px] items-center gap-1 px-4 sm:gap-3 sm:px-6 md:h-auto md:py-3">
         <Link href="/" className="home-header-text hidden shrink-0 font-display text-lg font-bold tracking-tight text-accent-text sm:text-2xl md:block">
           Tradeloft
@@ -641,6 +641,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
         </div>
       </div>
     </header>
+    <div aria-hidden="true" className="h-[101px] md:hidden" />
     {!user && <BottomNav />}
     {mobileNavigationOverlay}
     </>
