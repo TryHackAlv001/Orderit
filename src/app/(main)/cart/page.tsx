@@ -70,16 +70,16 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-bg flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-6">
-          <ShoppingBag className="w-16 h-16 text-[#1a7a4a] mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Your cart is empty</h1>
-          <p className="text-gray-600 mb-8">
-            Looks like you haven't added any items yet. Browse our marketplace to find delicious options!
+          <ShoppingBag className="w-16 h-16 text-muted mx-auto mb-4" />
+          <h1 className="text-3xl font-bold text-text mb-2">Your cart is empty</h1>
+          <p className="text-muted mb-8">
+            Looks like you haven&apos;t added any items yet. Browse our marketplace to find delicious options!
           </p>
           <Button
             onClick={() => router.push('/marketplace')}
-            className="bg-[#1a7a4a] hover:bg-[#156b3c] w-full"
+            className="w-full"
           >
             Browse Marketplace
           </Button>
@@ -89,29 +89,29 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-bg">
       <div className="max-w-6xl mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-12">Shopping Cart</h1>
+        <h1 className="text-4xl font-bold text-text mb-12">Shopping Cart</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2">
             <div className="space-y-8">
               {Object.entries(groupedByVendor).map(([vendorId, vendorItems]) => (
-                <div key={vendorId} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div key={vendorId} className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
                   {/* Vendor Group Header */}
-                  <div className="bg-gradient-to-r from-[#1a7a4a] to-[#156b3c] px-6 py-4">
-                    <h2 className="text-lg font-semibold text-white">
-                      {vendorItems[0]?.product.name?.split('|')[0] || 'Vendor Store'}
+                  <div className="border-b border-border bg-surface-raised px-6 py-4">
+                    <h2 className="text-lg font-semibold text-text">
+                      {vendorItems[0]?.vendor?.shop_name || 'Vendor Store'}
                     </h2>
                   </div>
 
                   {/* Items in vendor group */}
-                  <div className="divide-y">
+                  <div className="divide-y divide-border">
                     {vendorItems.map((item) => (
                       <div
                         key={item.id}
-                        className="p-6 hover:bg-gray-50 transition"
+                        className="p-6 transition-colors duration-200 hover:bg-surface-raised"
                       >
                         <div className="flex gap-6">
                           {/* Product Image */}
@@ -125,18 +125,24 @@ export default function CartPage() {
                                 className="object-cover rounded-lg"
                               />
                             ) : (
-                              <div className="w-[120px] h-[120px] bg-gray-200 rounded-lg flex items-center justify-center">
-                                <ShoppingBag className="w-8 h-8 text-gray-400" />
+                              <div className="w-[120px] h-[120px] rounded-md bg-surface-raised flex items-center justify-center">
+                                <ShoppingBag className="w-8 h-8 text-muted" />
                               </div>
                             )}
                           </div>
 
                           {/* Product Details */}
                           <div className="flex-1 flex flex-col">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                            <h3 className="text-lg font-semibold text-text mb-2">
                               {item.product.name}
                             </h3>
-                            <p className="text-2xl font-bold text-[#1a7a4a] mb-4">
+                            <p className="text-sm text-muted mb-2">
+                              Sold by {item.vendor?.shop_name || 'Vendor Store'}
+                            </p>
+                            {item.selected_size && (
+                              <p className="mb-2 text-sm font-medium text-muted">Size: {item.selected_size}</p>
+                            )}
+                            <p className="font-display text-2xl font-bold text-accent-text mb-4">
                               ₦{item.product.price.toLocaleString()}
                             </p>
 
@@ -144,17 +150,17 @@ export default function CartPage() {
                             <div className="flex items-center gap-3 mt-auto">
                               <button
                                 onClick={() => handleDecrement(item.id)}
-                                className="p-2 rounded-lg bg-gray-100 hover:bg-[#1a7a4a] text-gray-700 hover:text-white transition"
+                                className="rounded-md border border-border bg-surface-raised p-2 text-text transition-colors duration-200 hover:border-accent hover:bg-accent/10 hover:text-accent-text"
                                 aria-label="Decrease quantity"
                               >
                                 <Minus className="w-4 h-4" />
                               </button>
-                              <span className="w-12 text-center font-semibold text-gray-900">
+                              <span className="w-12 text-center font-semibold text-text">
                                 {item.quantity}
                               </span>
                               <button
                                 onClick={() => handleIncrement(item.id)}
-                                className="p-2 rounded-lg bg-gray-100 hover:bg-[#1a7a4a] text-gray-700 hover:text-white transition"
+                                className="rounded-md border border-border bg-surface-raised p-2 text-text transition-colors duration-200 hover:border-accent hover:bg-accent/10 hover:text-accent-text"
                                 aria-label="Increase quantity"
                               >
                                 <Plus className="w-4 h-4" />
@@ -166,14 +172,14 @@ export default function CartPage() {
                           <div className="flex flex-col items-end justify-between">
                             <button
                               onClick={() => removeItem(item.id)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                              className="rounded-md p-2 text-danger-text transition-colors duration-200 hover:bg-danger/10"
                               aria-label="Remove item"
                             >
                               <Trash2 className="w-5 h-5" />
                             </button>
                             <div className="text-right">
-                              <p className="text-sm text-gray-600 mb-1">Subtotal</p>
-                              <p className="text-2xl font-bold text-gray-900">
+                              <p className="text-sm text-muted mb-1">Subtotal</p>
+                              <p className="font-display text-2xl font-bold text-text">
                                 ₦{(item.product.price * item.quantity).toLocaleString()}
                               </p>
                             </div>
@@ -184,9 +190,9 @@ export default function CartPage() {
                   </div>
 
                   {/* Vendor Subtotal */}
-                  <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
-                    <span className="text-gray-700 font-semibold">Vendor Subtotal</span>
-                    <span className="text-xl font-bold text-[#1a7a4a]">
+                  <div className="bg-bg px-6 py-4 flex justify-between items-center">
+                    <span className="text-text font-semibold">Vendor Subtotal</span>
+                    <span className="font-display text-xl font-bold text-accent-text">
                       ₦{totals.vendorTotals[vendorId]?.toLocaleString()}
                     </span>
                   </div>
@@ -197,33 +203,33 @@ export default function CartPage() {
 
           {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-8 sticky top-4">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Order Summary</h2>
+            <div className="sticky top-4 rounded-lg border border-border bg-surface p-8 shadow-sm">
+              <h2 className="text-2xl font-bold text-text mb-6">Order Summary</h2>
 
               <div className="space-y-4 mb-8">
-                <div className="flex justify-between text-gray-700">
+                <div className="flex justify-between text-muted">
                   <span>Subtotal</span>
-                  <span>₦{totals.grandTotal.toLocaleString()}</span>
+                  <span className="font-display">₦{totals.grandTotal.toLocaleString()}</span>
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 pt-6">
+              <div className="border-t border-border pt-6">
                 <div className="flex justify-between items-center mb-6">
-                  <span className="text-lg font-semibold text-gray-900">Total</span>
-                  <span className="text-3xl font-bold text-[#1a7a4a]">
+                  <span className="text-lg font-semibold text-text">Total</span>
+                  <span className="font-display text-3xl font-bold text-accent-text">
                     ₦{totals.grandTotal.toLocaleString()}
                   </span>
                 </div>
 
                 <Button
                   onClick={() => router.push('/checkout')}
-                  className="w-full bg-[#1a7a4a] hover:bg-[#156b3c] text-white font-semibold py-3"
+                  className="w-full font-semibold py-3"
                 >
                   Proceed to Checkout
                 </Button>
               </div>
 
-              <p className="text-xs text-gray-500 text-center mt-6">
+              <p className="text-xs text-muted text-center mt-6">
                 You can review and modify your order in the next step
               </p>
             </div>

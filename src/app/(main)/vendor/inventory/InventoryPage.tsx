@@ -44,9 +44,9 @@ function formatCurrency(value: number) {
 }
 
 function getStockStatus(stock: number) {
-  if (stock === 0) return { status: "Out of Stock", color: "bg-red-100 text-red-800", icon: XCircle };
-  if (stock <= 5) return { status: "Low Stock", color: "bg-yellow-100 text-yellow-800", icon: AlertTriangle };
-  return { status: "In Stock", color: "bg-green-100 text-green-800", icon: CheckCircle };
+  if (stock === 0) return { status: "Out of Stock", color: "bg-danger/10 text-danger-text", icon: XCircle };
+  if (stock <= 5) return { status: "Low Stock", color: "bg-warning/10 text-text", icon: AlertTriangle };
+  return { status: "In Stock", color: "bg-success/10 text-text", icon: CheckCircle };
 }
 
 function StockInput({
@@ -83,19 +83,19 @@ function StockInput({
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="w-20 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-20 px-2 py-1 text-sm border border-border rounded focus:outline-none focus:ring-2 focus:ring-ring"
         autoFocus
       />
       <button
         onClick={handleSave}
-        className="p-1 text-green-600 hover:text-green-800"
+        className="p-1 text-text hover:text-text"
         title="Save"
       >
         <Save className="w-4 h-4" />
       </button>
       <button
         onClick={onCancel}
-        className="p-1 text-red-600 hover:text-red-800"
+        className="p-1 text-danger-text hover:text-danger-text"
         title="Cancel"
       >
         <X className="w-4 h-4" />
@@ -245,18 +245,18 @@ export default function InventoryPage({ products: initialProducts, categories }:
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold">Inventory Management</h1>
-          <p className="text-slate-600">Manage your product stock levels and track changes.</p>
+          <p className="text-muted">Manage your product stock levels and track changes.</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-slate-100 rounded-lg w-fit">
+      <div className="flex gap-1 p-1 bg-surface-raised rounded-lg w-fit">
         <button
           onClick={() => setActiveTab("all")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === "all"
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-600 hover:text-slate-900"
+              ? "bg-surface text-text shadow-sm"
+              : "text-muted hover:text-text"
           }`}
         >
           All Products ({products.length})
@@ -265,8 +265,8 @@ export default function InventoryPage({ products: initialProducts, categories }:
           onClick={() => setActiveTab("low-stock")}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
             activeTab === "low-stock"
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-600 hover:text-slate-900"
+              ? "bg-surface text-text shadow-sm"
+              : "text-muted hover:text-text"
           }`}
         >
           Low Stock ({products.filter(p => p.stock_quantity <= 5).length})
@@ -276,7 +276,7 @@ export default function InventoryPage({ products: initialProducts, categories }:
       {/* Filters and Search */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-4 h-4" />
           <Input
             type="text"
             placeholder="Search by product name or SKU..."
@@ -288,7 +288,7 @@ export default function InventoryPage({ products: initialProducts, categories }:
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">All Categories</option>
           {categories.map(category => (
@@ -298,7 +298,7 @@ export default function InventoryPage({ products: initialProducts, categories }:
         <select
           value={stockFilter}
           onChange={(e) => setStockFilter(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">All Stock Status</option>
           <option value="in-stock">In Stock</option>
@@ -309,8 +309,8 @@ export default function InventoryPage({ products: initialProducts, categories }:
 
       {/* Bulk Actions */}
       {selectedProducts.size > 0 && (
-        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <span className="text-sm font-medium text-blue-900">
+        <div className="flex items-center gap-4 p-4 bg-accent/10 border border-accent rounded-lg">
+          <span className="text-sm font-medium text-accent-text">
             {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} selected
           </span>
           <div className="flex items-center gap-2">
@@ -325,7 +325,7 @@ export default function InventoryPage({ products: initialProducts, categories }:
             <Button
               onClick={handleBulkUpdate}
               disabled={isUpdating || !bulkQuantity}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-accent hover:bg-accent-hover"
             >
               {isUpdating ? <Spinner className="w-4 h-4" /> : "Update Stock"}
             </Button>
@@ -340,27 +340,27 @@ export default function InventoryPage({ products: initialProducts, categories }:
       )}
 
       {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="bg-bg border-b border-border">
               <tr>
                 <th className="px-4 py-3 text-left">
                   <input
                     type="checkbox"
                     checked={filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length}
                     onChange={(e) => e.target.checked ? selectAllVisible() : clearSelection()}
-                    className="rounded border-slate-300"
+                    className="rounded border-border"
                   />
                 </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">Product</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">SKU</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">Category</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">Stock</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">Price</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">Status</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">Last Updated</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-slate-700">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-text">Product</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-text">SKU</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-text">Category</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-text">Stock</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-text">Price</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-text">Status</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-text">Last Updated</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-text">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -369,18 +369,18 @@ export default function InventoryPage({ products: initialProducts, categories }:
                 const StatusIcon = stockStatus.icon;
 
                 return (
-                  <tr key={product.id} className="border-b border-slate-200 hover:bg-slate-50">
+                  <tr key={product.id} className="border-b border-border hover:bg-bg">
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
                         checked={selectedProducts.has(product.id)}
                         onChange={() => toggleProductSelection(product.id)}
-                        className="rounded border-slate-300"
+                        className="rounded border-border"
                       />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0">
+                        <div className="w-12 h-12 bg-surface-raised rounded-lg overflow-hidden flex-shrink-0">
                           {product.images[0] ? (
                             <Image
                               src={product.images[0]}
@@ -391,20 +391,20 @@ export default function InventoryPage({ products: initialProducts, categories }:
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-6 h-6 text-slate-400" />
+                              <Package className="w-6 h-6 text-muted" />
                             </div>
                           )}
                         </div>
                         <div>
-                          <div className="font-medium text-slate-900">{product.name}</div>
-                          <div className="text-sm text-slate-500">ID: {product.id.slice(0, 8)}</div>
+                          <div className="font-medium text-text">{product.name}</div>
+                          <div className="text-sm text-muted">ID: {product.id.slice(0, 8)}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700">
+                    <td className="px-4 py-3 text-sm text-text">
                       {product.sku || "—"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700">
+                    <td className="px-4 py-3 text-sm text-text">
                       {product.category?.name || "Uncategorized"}
                     </td>
                     <td className="px-4 py-3">
@@ -419,10 +419,10 @@ export default function InventoryPage({ products: initialProducts, categories }:
                           onClick={() => setEditingStock(product.id)}
                           className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${
                             product.stock_quantity === 0
-                              ? "bg-red-100 text-red-800"
+                              ? "bg-danger/10 text-danger-text"
                               : product.stock_quantity <= 5
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-green-100 text-green-800"
+                              ? "bg-warning/10 text-text"
+                              : "bg-success/10 text-text"
                           } hover:opacity-80 transition-opacity`}
                         >
                           <StatusIcon className="w-3 h-3" />
@@ -430,7 +430,7 @@ export default function InventoryPage({ products: initialProducts, categories }:
                         </button>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                    <td className="px-4 py-3 font-display text-sm font-medium text-text">
                       {formatCurrency(product.price)}
                     </td>
                     <td className="px-4 py-3">
@@ -438,7 +438,7 @@ export default function InventoryPage({ products: initialProducts, categories }:
                         {stockStatus.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
+                    <td className="px-4 py-3 text-sm text-muted">
                       {new Date(product.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
@@ -449,7 +449,7 @@ export default function InventoryPage({ products: initialProducts, categories }:
                             loadStockHistory(product.id);
                           }
                         }}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        className="text-accent-text hover:text-accent-text text-sm font-medium"
                       >
                         History
                       </button>
@@ -463,9 +463,9 @@ export default function InventoryPage({ products: initialProducts, categories }:
 
         {filteredProducts.length === 0 && (
           <div className="text-center py-12">
-            <Package className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">No products found</h3>
-            <p className="text-slate-600">
+            <Package className="w-12 h-12 text-muted mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-text mb-2">No products found</h3>
+            <p className="text-muted">
               {activeTab === "low-stock"
                 ? "No products with low stock levels."
                 : "Try adjusting your search or filters."}
@@ -476,13 +476,13 @@ export default function InventoryPage({ products: initialProducts, categories }:
 
       {/* Stock History Modal */}
       {showStockHistory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-background bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-surface rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Stock History</h3>
               <button
                 onClick={() => setShowStockHistory(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-muted hover:text-muted"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -493,20 +493,20 @@ export default function InventoryPage({ products: initialProducts, categories }:
                 <Spinner className="w-6 h-6" />
               </div>
             ) : stockHistory.length === 0 ? (
-              <p className="text-slate-600 text-center py-8">No stock changes recorded yet.</p>
+              <p className="text-muted text-center py-8">No stock changes recorded yet.</p>
             ) : (
               <div className="space-y-3">
                 {stockHistory.map((log) => (
-                  <div key={log.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <div key={log.id} className="flex items-center justify-between p-3 bg-bg rounded-lg">
                     <div>
-                      <div className="font-medium text-slate-900">
+                      <div className="font-medium text-text">
                         {log.previous_qty} → {log.new_qty}
                       </div>
-                      <div className="text-sm text-slate-600">
+                      <div className="text-sm text-muted">
                         by {log.user.full_name || log.user.email}
                       </div>
                     </div>
-                    <div className="text-sm text-slate-500">
+                    <div className="text-sm text-muted">
                       {new Date(log.changed_at).toLocaleString()}
                     </div>
                   </div>

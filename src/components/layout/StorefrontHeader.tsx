@@ -29,7 +29,7 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
   return (
     <div className="space-y-6">
       {/* Banner Image */}
-      <div className="relative h-64 w-full overflow-hidden rounded-3xl bg-slate-100 md:h-80">
+      <div className="relative h-64 w-full overflow-hidden rounded-lg border border-border bg-surface-raised md:h-80">
         {vendor.banner_url ? (
           <Image
             src={vendor.banner_url}
@@ -39,13 +39,13 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
             priority
           />
         ) : (
-          <div className="flex h-full items-center justify-center bg-gradient-to-r from-emerald-400 to-emerald-600">
-            <Package className="h-24 w-24 text-white" />
+          <div className="flex h-full items-center justify-center bg-surface-raised">
+            <Package className="h-24 w-24 text-muted" />
           </div>
         )}
         {/* no floating owner overlay to avoid overlapping badge */}
         {vendor.is_verified && (
-          <Badge className="absolute right-6 top-6 bg-blue-100 text-blue-800">
+          <Badge className="absolute right-6 top-6 bg-accent/10 text-text">
             Open Now
           </Badge>
         )}
@@ -55,7 +55,7 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
       <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-6">
           {/* Logo */}
-          <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-lg">
+          <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-full border border-border bg-surface-raised shadow-sm">
             {vendor.logo_url ? (
               <Image
                 src={vendor.logo_url}
@@ -64,14 +64,14 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
                 className="object-cover"
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-emerald-100 text-emerald-600">
+              <div className="flex h-full items-center justify-center bg-accent/10 text-accent-text">
                 <Package className="h-12 w-12" />
               </div>
             )}
             {isOwner ? (
               <a
                 href="/vendor/settings#branding"
-                className="absolute right-0 bottom-0 hidden translate-y-6 translate-x-6 items-center gap-2 rounded-full bg-white/90 p-2 text-sm text-slate-700 shadow hover:bg-white md:flex"
+                className="absolute right-0 bottom-0 hidden translate-y-6 translate-x-6 items-center gap-2 rounded-md border border-border bg-surface p-2 text-sm text-text shadow-sm transition-colors duration-200 hover:bg-surface-raised md:flex"
                 title="Edit logo"
               >
                 <Edit3 className="h-4 w-4" />
@@ -82,13 +82,13 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
           {/* Vendor Details */}
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-slate-900">{vendor.shop_name}</h1>
+              <h1 className="text-3xl font-bold text-text">{vendor.shop_name}</h1>
               {vendor.is_verified && (
-                <Badge className="bg-blue-100 text-blue-800">Verified</Badge>
+                <Badge className="bg-success/10 text-text">Verified</Badge>
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted">
               {vendor.location && (
                 <div className="flex items-center gap-1">
                   <MapPin className="h-4 w-4" />
@@ -102,7 +102,7 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
               </div>
 
               <div className="flex items-center gap-1">
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                <Star className="h-4 w-4 fill-accent text-accent-text" />
                 <span>{vendor.rating.toFixed(1)} ({vendor.review_count} reviews)</span>
               </div>
 
@@ -117,7 +117,7 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
             </div>
 
             {vendor.shop_description && (
-              <p className="max-w-2xl text-slate-700">{vendor.shop_description}</p>
+              <p className="max-w-2xl text-text">{vendor.shop_description}</p>
             )}
           </div>
         </div>

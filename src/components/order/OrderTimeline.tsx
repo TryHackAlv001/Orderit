@@ -1,53 +1,163 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+export interface OrderStatusEvent {
+  id: string;
+  status: string;
+  note: string | null;
+  created_at: string;
+}
+
+const EMPTY_HISTORY: OrderStatusEvent[] = [];
+
 interface OrderTimelineProps {
-  status: "pending" | "confirmed" | "preparing" | "out_for_delivery" | "shipped" | "delivered" | "cancelled";
+  status: string;
+  orderId?: string;
+  history?: OrderStatusEvent[];
 }
 
 const steps = [
-  { key: "pending", label: "Pending" },
+  { key: "placed", label: "Placed" },
   { key: "confirmed", label: "Confirmed" },
-  { key: "preparing", label: "Preparing" },
-  { key: "out_for_delivery", label: "Out for Delivery" },
+  { key: "shipped", label: "Shipped" },
+  { key: "out_for_delivery", label: "Out for delivery" },
   { key: "delivered", label: "Delivered" },
 ];
 
-function isComplete(step: string, status: string) {
-  const order = ["pending", "confirmed", "preparing", "out_for_delivery", "delivered"];
-  // If code elsewhere still uses 'shipped', treat it as 'out_for_delivery' for ordering
-  const normalizedStatus = status === "shipped" ? "out_for_delivery" : status;
-  return order.indexOf(step) <= order.indexOf(normalizedStatus);
+function getProgress(status: string) {
+  switch (status) {
+    case "pending":
+    case "placed":
+      return 0;
+    case "confirmed":
+    case "preparing":
+      return 1;
+    case "shipped":
+      return 2;
+    case "out_for_delivery":
+      return 3;
+    case "delivered":
+      return 4;
+    default:
+      return -1;
+  }
 }
 
-export function OrderTimeline({ status }: OrderTimelineProps) {
-  return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h3 className="text-lg font-semibold text-slate-900">Order Timeline</h3>
-      <p className="mt-2 text-sm text-slate-600">Track progress from pending to delivered.</p>
+export function OrderTimeline({ status, orderId, history = EMPTY_HISTORY }: OrderTimelineProps) {
+  const [events, setEvents] = useState(history);
+  const [liveError, setLiveError] = useState(false);
 
-      {status === "cancelled" ? (
-        <div className="mt-6 rounded-3xl border border-rose-200 bg-rose-50 p-6 text-slate-700">
-          <p className="text-sm font-semibold text-rose-800">Order Cancelled</p>
-          <p className="mt-2 text-sm text-rose-700">This order has been cancelled and will not progress further.</p>
+  useEffect(() => {
+    setEvents(history);
+  }, [history]);
+
+  useEffect(() => {
+    if (!orderId) return;
+    const supabase = createClient();
+    let active = true;
+    const channel = supabase
+      .channel(`order-tracking-${orderId}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "order_status_history",
+        filter: `order_id=eq.${orderId}`,
+      }, (payload) => {
+        const event = payload.new as OrderStatusEvent;
+        setEvents((current) => current.some((item) => item.id === event.id)
+          ? current
+          : [...current, event].sort((a, b) => a.created_at.localeCompare(b.created_at)));
+        setLiveError(false);
+      })
+      .subscribe((state) => {
+        if (state === "CHANNEL_ERROR" || state === "TIMED_OUT") {
+          setLiveError(true);
+          console.error(`Order ${orderId} tracking realtime subscription ${state.toLowerCase()}.`);
+        }
+      });
+
+    void supabase
+      .from("order_status_history")
+      .select("id,status,note,created_at")
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: true })
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setLiveError(true);
+          console.error("Unable to load order status history:", error.message);
+          return;
+        }
+        if (data) {
+          setEvents((current) => {
+            const eventsById = new Map(current.map((event) => [event.id, event]));
+            data.forEach((event) => eventsById.set(event.id, event));
+            return Array.from(eventsById.values()).sort((a, b) => a.created_at.localeCompare(b.created_at));
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+      void supabase.removeChannel(channel);
+    };
+  }, [orderId]);
+
+  const currentStatus = events[events.length - 1]?.status ?? status;
+  const progress = getProgress(currentStatus);
+  const latestNote = useMemo(
+    () => [...events].reverse().find((event) => event.note)?.note,
+    [events]
+  );
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+      <h3 className="text-lg font-semibold text-text">Order tracking</h3>
+      <p className="mt-2 text-sm text-muted">Follow your order from placement to delivery.</p>
+
+      {currentStatus === "cancelled" ? (
+        <div className="mt-6 rounded-lg border border-danger bg-danger/10 p-5">
+          <p className="font-semibold text-danger-text">Order cancelled</p>
+          <p className="mt-1 text-sm text-danger-text">This order will not progress further.</p>
         </div>
       ) : (
-        <div className="mt-6 space-y-4">
+        <ol className="mt-6 space-y-4">
           {steps.map((step, index) => {
-            const completed = isComplete(step.key, status);
+            const completed = index <= progress;
+            const event = events.find((item) => {
+              return step.key === "placed"
+                ? item.status === "placed" || item.status === "pending"
+                : item.status === step.key;
+            }) ?? (step.key === "shipped" && currentStatus === "out_for_delivery"
+              ? events.find((item) => item.status === "out_for_delivery")
+              : undefined);
             return (
-              <div key={step.key} className="flex items-center gap-4">
+              <li key={step.key} className="flex gap-3">
                 <div className="flex flex-col items-center">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-full border ${completed ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white text-slate-500"}`}>
-                    {index + 1}
-                  </div>
-                  {index !== steps.length - 1 && <div className="h-10 w-px bg-slate-200" />}
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${
+                    completed ? "border-accent bg-accent text-accent-on" : "border-border text-muted"
+                  }`}>{completed ? "✓" : index + 1}</span>
+                  {index < steps.length - 1 && <span className="mt-1 h-8 w-px bg-surface-raised" />}
                 </div>
-                <div>
-                  <p className="font-semibold text-slate-900">{step.label}</p>
-                  <p className="text-sm text-slate-500">{completed ? "Completed" : "Waiting"}</p>
+                <div className="min-w-0 pb-3">
+                  <p className={`font-medium ${completed ? "text-text" : "text-muted"}`}>{step.label}</p>
+                  {event && <time className="text-xs text-muted">{new Date(event.created_at).toLocaleString()}</time>}
+                  {event?.note && <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{event.note}</p>}
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ol>
+      )}
+      {latestNote && !events.some((event) => event.note === latestNote && event.status === currentStatus) && (
+        <p className="mt-4 rounded-lg bg-bg p-3 text-sm text-text">{latestNote}</p>
+      )}
+      {liveError && (
+        <p className="mt-4 text-xs text-text" role="status">
+          Live updates are temporarily unavailable. Refresh this page to check for changes.
+        </p>
       )}
     </div>
   );

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createOrderNotification } from "@/lib/order-notifications";
 
 interface Params {
   params: {
@@ -24,7 +23,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   if (vpError || !vp) return NextResponse.json({ error: "Vendor profile not found" }, { status: 404 });
 
-  const vendorProfileId = vp.id;
+  const vendorProfileId = userId;
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
@@ -56,6 +55,5 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: updateError?.message || "Failed to update order" }, { status: 500 });
   }
 
-  await createOrderNotification(order.buyer_id, "Order confirmed", `Your order ${order.id.slice(0, 8)} has been confirmed.`, order.id);
   return NextResponse.json({ success: true, status: updated.status });
 }

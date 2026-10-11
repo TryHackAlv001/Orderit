@@ -45,7 +45,7 @@ export function VendorOrdersExportButton({ orders }: VendorOrdersExportButtonPro
   };
 
   return (
-    <Button type="button" onClick={download} className="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-700">
+    <Button type="button" onClick={download} className="rounded-md bg-accent px-5 py-3 text-sm font-semibold text-accent-on">
       Export to CSV
     </Button>
   );

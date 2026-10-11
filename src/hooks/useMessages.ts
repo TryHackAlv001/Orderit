@@ -56,7 +56,7 @@ export function useMessages(conversationId?: string | null, currentUserId?: stri
     setError(null);
     const { data, error } = await createClient()
       .from('messages')
-      .select('*, sender:sender_id(id,full_name,avatar_url,role), receiver:receiver_id(id,full_name,avatar_url,role), order:order_id(id)')
+      .select('*, sender:users!messages_sender_id_fkey(id,full_name,avatar_url,role,vendor_profiles(user_id,shop_name,logo_url)), receiver:users!messages_receiver_id_fkey(id,full_name,avatar_url,role,vendor_profiles(user_id,shop_name,logo_url)), order:orders!messages_order_id_fkey(id)')
       .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${conversationId}),and(sender_id.eq.${conversationId},receiver_id.eq.${currentUserId})`)
       .order('created_at', { ascending: true });
     if (error) { setError(error.message); setMessages([]); }

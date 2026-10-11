@@ -61,6 +61,7 @@ export function CheckoutForm({ items, onOrderCreated }: CheckoutFormProps) {
           items: items.map((item) => ({
             productId: item.product.id,
             quantity: item.quantity,
+            selectedSize: item.selected_size ?? null,
           })),
           deliveryAddress,
           customerName: fullName,
@@ -86,28 +87,37 @@ export function CheckoutForm({ items, onOrderCreated }: CheckoutFormProps) {
 
   if (orderId) {
     return (
-      <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="space-y-4 rounded-lg border border-border bg-surface p-6 shadow-sm">
         <div className="space-y-2">
-          <h3 className="font-semibold text-slate-900">Order Summary</h3>
-          <div className="space-y-1 text-sm text-slate-600">
+          <h3 className="font-semibold text-text">Order Summary</h3>
+          <div className="space-y-1 text-sm text-muted">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span>₦{subtotal.toLocaleString()}</span>
+              <span className="font-display">₦{subtotal.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span>Delivery Fee:</span>
-              <span>₦{deliveryFee.toLocaleString()}</span>
+              <span className="font-display">₦{deliveryFee.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold text-slate-900">
+            <div className="flex justify-between border-t border-border pt-1 font-semibold text-text">
               <span>Total:</span>
-              <span>₦{total.toLocaleString()}</span>
+              <span className="font-display">₦{total.toLocaleString()}</span>
             </div>
           </div>
         </div>
 
         <div className="space-y-2">
-          <h3 className="font-semibold text-slate-900">Delivery Address</h3>
-          <p className="text-sm text-slate-600">{deliveryAddress}</p>
+          <h3 className="font-semibold text-text">Delivery Address</h3>
+          <p className="text-sm text-muted">{deliveryAddress}</p>
+        </div>
+
+        <div className="space-y-2">
+        <h3 className="font-semibold text-text">Items</h3>
+        {items.map((item) => (
+          <p key={item.id} className="text-sm text-muted">
+            {item.product.name}{item.selected_size ? ` · Size: ${item.selected_size}` : ""} · Qty {item.quantity}
+          </p>
+        ))}
         </div>
 
         <PaymentButtons
@@ -133,22 +143,22 @@ export function CheckoutForm({ items, onOrderCreated }: CheckoutFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+      className="space-y-4 rounded-lg border border-border bg-surface p-6 shadow-sm"
     >
       {error && (
-        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
+        <div className="rounded-md border border-danger/30 bg-danger/10 p-4 text-sm text-danger-text">
           {error}
         </div>
       )}
 
       {!user?.email && (
-        <div className="rounded-lg bg-yellow-50 p-4 text-sm text-yellow-800">
+        <div className="rounded-md border border-warning/30 bg-warning/10 p-4 text-sm text-text">
           You must be signed in to place an order.
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium text-slate-700">
+        <label className="block text-sm font-medium text-text">
           Full Name
         </label>
         <Input
@@ -160,7 +170,7 @@ export function CheckoutForm({ items, onOrderCreated }: CheckoutFormProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700">
+        <label className="block text-sm font-medium text-text">
           Delivery Address
         </label>
         <Input
@@ -171,20 +181,20 @@ export function CheckoutForm({ items, onOrderCreated }: CheckoutFormProps) {
         />
       </div>
 
-      <div className="space-y-2 rounded-lg bg-slate-50 p-4">
-        <h3 className="font-semibold text-slate-900">Order Summary</h3>
-        <div className="space-y-1 text-sm text-slate-600">
+      <div className="space-y-2 rounded-md bg-bg p-4">
+        <h3 className="font-semibold text-text">Order Summary</h3>
+        <div className="space-y-1 text-sm text-muted">
           <div className="flex justify-between">
             <span>{items.length} item(s)</span>
-            <span>₦{subtotal.toLocaleString()}</span>
+            <span className="font-display">₦{subtotal.toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
             <span>Delivery:</span>
-            <span>₦{deliveryFee.toLocaleString()}</span>
+            <span className="font-display">₦{deliveryFee.toLocaleString()}</span>
           </div>
-          <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold text-slate-900">
+          <div className="flex justify-between border-t border-border pt-2 font-semibold text-text">
             <span>Total:</span>
-            <span>₦{total.toLocaleString()}</span>
+            <span className="font-display">₦{total.toLocaleString()}</span>
           </div>
         </div>
       </div>

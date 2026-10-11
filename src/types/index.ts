@@ -36,9 +36,15 @@ export interface Product {
   id: string;
   vendor_id: string;
   category_id?: string;
+  category?: { id?: string; name: string; slug?: string };
   name: string;
   description?: string;
   price: number;
+  brand?: string;
+  brand_normalized?: string;
+  is_complete?: boolean;
+  size_type?: "none" | "single" | "multi" | null;
+  available_sizes?: string[];
   compare_price?: number;
   minimum_order: number;
   tags: string[];
@@ -49,6 +55,24 @@ export interface Product {
   rating: number;
   review_count: number;
   created_at: Date;
+  preparation_time?: number;
+  is_available_today?: boolean;
+  dietary_tags?: string[];
+  spice_level?: string;
+}
+
+export interface ProductVariant {
+  id?: string;
+  product_id?: string;
+  color: string | null;
+  size: string | null;
+  stock_quantity: number;
+}
+
+export interface ProductAttributeRule {
+  category_id: string;
+  requires_color: boolean;
+  requires_size: boolean;
 }
 
 export interface StockLog {
@@ -83,6 +107,7 @@ export interface OrderItem {
   price_at_purchase: number;
   product_name: string;
   product_image?: string;
+  selected_size?: string | null;
 }
 
 export interface Review {
@@ -109,13 +134,19 @@ export interface MessageWithRelations extends Message {
     vendor_profiles?: {
       shop_name?: string;
       logo_url?: string;
-    }[];
+    }[] | {
+      shop_name?: string;
+      logo_url?: string;
+    } | null;
   };
   receiver?: User & {
     vendor_profiles?: {
       shop_name?: string;
       logo_url?: string;
-    }[];
+    }[] | {
+      shop_name?: string;
+      logo_url?: string;
+    } | null;
   };
   order?: {
     id: string;
@@ -148,6 +179,7 @@ export interface CartItem {
   id: string;
   product: Product;
   quantity: number;
+  selected_size?: string | null;
   vendor: {
     id: string;
     shop_name: string;

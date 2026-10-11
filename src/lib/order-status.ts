@@ -11,24 +11,22 @@ export const statusLabel = (status: string): string => {
     out_for_delivery: "Out for Delivery",
     delivered: "Delivered",
     cancelled: "Cancelled",
-    // Fallback for 'shipped' (legacy status)
-    shipped: "Out for Delivery",
+    shipped: "Shipped",
   };
   return labels[status] ?? status;
 };
 
 export const statusColor = (status: string): string => {
   const colors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    confirmed: "bg-blue-100 text-blue-800",
-    preparing: "bg-orange-100 text-orange-800",
-    out_for_delivery: "bg-purple-100 text-purple-800",
-    delivered: "bg-green-100 text-green-800",
-    cancelled: "bg-red-100 text-red-800",
-    // Fallback for 'shipped' (legacy status)
-    shipped: "bg-purple-100 text-purple-800",
+    pending: "bg-warning/10 text-text",
+    confirmed: "bg-accent/10 text-accent-text",
+    preparing: "bg-warning/10 text-text",
+    out_for_delivery: "bg-accent/10 text-accent-text",
+    delivered: "bg-success/10 text-text",
+    cancelled: "bg-danger/10 text-danger-text",
+    shipped: "bg-accent/10 text-accent-text",
   };
-  return colors[status] ?? "bg-gray-100 text-gray-800";
+  return colors[status] ?? "bg-surface-raised text-text";
 };
 
 export const statusIcon = (status: string) => {
@@ -41,6 +39,8 @@ export const statusIcon = (status: string) => {
       return "👨‍🍳";
     case "out_for_delivery":
       return "🚗";
+    case "shipped":
+      return "📦";
     case "delivered":
       return "✓✓";
     case "cancelled":

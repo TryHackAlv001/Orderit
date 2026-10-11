@@ -27,7 +27,7 @@ export function useAuth() {
     }
 
     const { data: userData, error: userError } = await createClient()
-      .from<User>("users")
+      .from("users")
       .select("*")
       .eq("id", sessionUser.id)
       .single();
@@ -42,7 +42,7 @@ export function useAuth() {
 
     if (userData.role === "vendor") {
       const { data: vendorProfile, error: vendorError } = await createClient()
-        .from<VendorProfile>("vendor_profiles")
+        .from("vendor_profiles")
         .select("*")
         .eq("user_id", sessionUser.id)
         .single();

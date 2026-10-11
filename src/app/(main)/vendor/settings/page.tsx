@@ -91,7 +91,7 @@ export default function VendorSettingsPage() {
     <div className="space-y-8 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Store Settings</h1>
-        <a href={`/vendor/${vendor.id}/store`} className="text-sm text-slate-700 hover:underline">Back to My Store</a>
+        <a href={`/vendor/${vendor.id}/store`} className="text-sm text-text hover:underline">Back to My Store</a>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -176,7 +176,7 @@ export default function VendorSettingsPage() {
 
         <aside className="space-y-4">
           <h3 className="text-sm font-semibold">Help</h3>
-          <p className="text-sm text-slate-600">Update your shop details and branding. Changes will appear on your store page.</p>
+          <p className="text-sm text-muted">Update your shop details and branding. Changes will appear on your store page.</p>
         </aside>
       </div>
     </div>

@@ -79,8 +79,8 @@ export function ReviewForm({
 
   if (alreadyReviewed) {
     return (
-      <div className="rounded-3xl border border-blue-200 bg-blue-50 p-4">
-        <div className="flex items-center gap-2 text-blue-700">
+      <div className="rounded-lg border border-accent bg-accent/10 p-4">
+        <div className="flex items-center gap-2 text-accent-text">
           <AlertCircle className="h-5 w-5" />
           <p className="text-sm font-medium">You've already reviewed this product</p>
         </div>
@@ -90,8 +90,8 @@ export function ReviewForm({
 
   if (disabled) {
     return (
-      <div className="rounded-3xl border border-yellow-200 bg-yellow-50 p-4">
-        <div className="flex items-center gap-2 text-yellow-700">
+      <div className="rounded-lg border border-warning bg-warning/10 p-4">
+        <div className="flex items-center gap-2 text-text">
           <AlertCircle className="h-5 w-5" />
           <p className="text-sm font-medium">You must purchase and receive this product to review it</p>
         </div>
@@ -100,12 +100,12 @@ export function ReviewForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
-      <h3 className="font-semibold text-slate-900">Write a Review</h3>
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border bg-surface p-6">
+      <h3 className="font-semibold text-text">Write a Review</h3>
 
       {/* Star Rating */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-slate-700">Rating</label>
+        <label className="text-sm font-medium text-text">Rating</label>
         <div className="flex gap-2">
           {[1, 2, 3, 4, 5].map((star) => (
             <button
@@ -119,19 +119,19 @@ export function ReviewForm({
               <Star
                 className={`h-8 w-8 ${
                   star <= (hoveredRating || rating)
-                    ? 'fill-yellow-400 text-yellow-400'
-                    : 'text-slate-300'
+                    ? 'fill-warning text-text'
+                    : 'text-muted'
                 }`}
               />
             </button>
           ))}
         </div>
-        {rating > 0 && <p className="text-sm text-slate-600">{rating} out of 5 stars</p>}
+        {rating > 0 && <p className="text-sm text-muted">{rating} out of 5 stars</p>}
       </div>
 
       {/* Comment */}
       <div className="space-y-2">
-        <label htmlFor="comment" className="text-sm font-medium text-slate-700">
+        <label htmlFor="comment" className="text-sm font-medium text-text">
           Your Comment
         </label>
         <textarea
@@ -139,25 +139,25 @@ export function ReviewForm({
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="Share your experience with this product (minimum 10 characters)"
-          className="w-full rounded-2xl border border-slate-300 px-4 py-3 focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-lg border border-border px-4 py-3 focus:border-accent focus:outline-none"
           rows={4}
         />
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted">
           {comment.length} / 10 characters minimum
         </p>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-3">
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="rounded-lg border border-danger bg-danger/10 p-3">
+          <p className="text-sm text-danger-text">{error}</p>
         </div>
       )}
 
       {/* Success Message */}
       {success && (
-        <div className="rounded-2xl border border-green-200 bg-green-50 p-3">
-          <p className="text-sm text-green-700">Review submitted successfully!</p>
+        <div className="rounded-lg border border-success bg-success/10 p-3">
+          <p className="text-sm text-text">Review submitted successfully!</p>
         </div>
       )}
 
@@ -166,7 +166,7 @@ export function ReviewForm({
         <button
           type="submit"
           disabled={loading || success}
-          className="flex-1 rounded-full bg-blue-600 px-4 py-2.5 font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 rounded-full bg-accent px-4 py-2.5 font-medium text-accent-on hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Submitting...' : success ? 'Submitted' : 'Submit Review'}
         </button>
@@ -174,7 +174,7 @@ export function ReviewForm({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-300 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-full border border-border px-4 py-2.5 font-medium text-text hover:bg-bg"
           >
             Cancel
           </button>

@@ -24,7 +24,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       .from("orders")
       .update(updates)
       .eq("id", params.id)
-      .eq("vendor_id", vp.id)
+      .eq("vendor_id", user.id)
       .select("id,buyer_id,dispatch_rider_name,dispatch_rider_phone")
       .single();
 

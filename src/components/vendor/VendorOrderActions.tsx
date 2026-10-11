@@ -1,108 +1,101 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Check, Truck, CheckCircle2 } from "lucide-react";
+import { MessageCircle, Truck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
+
+const nextStatuses: Record<string, { value: string; label: string }[]> = {
+  pending: [{ value: "confirmed", label: "Confirmed" }],
+  confirmed: [{ value: "preparing", label: "Preparing" }],
+  preparing: [
+    { value: "shipped", label: "Shipped" },
+    { value: "out_for_delivery", label: "Out for delivery" },
+  ],
+  shipped: [{ value: "out_for_delivery", label: "Out for delivery" }],
+  out_for_delivery: [{ value: "delivered", label: "Delivered" }],
+};
 
 interface VendorOrderActionsProps {
   orderId: string;
   status: string;
-  buyerId: string;
+  buyerId?: string;
   onStatusChange?: (newStatus: string) => void;
 }
 
-export function VendorOrderActions({ orderId, status: initialStatus, buyerId, onStatusChange }: VendorOrderActionsProps) {
+export function VendorOrderActions({ orderId, status, buyerId, onStatusChange }: VendorOrderActionsProps) {
   const router = useRouter();
+  const [currentStatus, setCurrentStatus] = useState(status);
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [trackingNote, setTrackingNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentStatus, setCurrentStatus] = useState(initialStatus);
+  const choices = useMemo(() => nextStatuses[currentStatus] ?? [], [currentStatus]);
+  const nextStatus = choices.length > 1 ? selectedStatus || choices[0].value : choices[0]?.value;
 
-  const executeAction = async (url: string, newStatus: string, body?: Record<string, unknown>) => {
+  const updateStatus = async () => {
+    if (!nextStatus) return;
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(url, {
-        method: "POST",
+      const response = await fetch(`/api/vendor/orders/${orderId}/status`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: body ? JSON.stringify(body) : undefined,
+        body: JSON.stringify({ status: nextStatus, note: trackingNote }),
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Unable to update order status");
-      setCurrentStatus(newStatus);
-      if (onStatusChange) onStatusChange(newStatus);
-      toast.success("Order updated successfully!");
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to update order status.");
+      setCurrentStatus(result.order.status);
+      setTrackingNote("");
+      onStatusChange?.(result.order.status);
+      toast.success("Order status updated.");
       router.refresh();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Action failed";
-      setError(msg);
-      toast.error(msg);
+    } catch (updateError) {
+      const message = updateError instanceof Error ? updateError.message : "Unable to update order status.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const confirmOrder = () => executeAction(`/api/vendor/orders/${orderId}/confirm`, "confirmed");
-
-  const markPreparing = () => executeAction(
-    `/api/vendor/orders/${orderId}/ship`, "preparing", { status: "preparing" }
-  );
-
-  const shipOrder = () => {
-    executeAction(`/api/vendor/orders/${orderId}/ship`, "out_for_delivery", {
-      status: "out_for_delivery"
-    });
-  };
-
-  const markDelivered = () => {
-    executeAction(`/api/vendor/orders/${orderId}/deliver`, "delivered");
-  };
-
   return (
     <div className="space-y-4">
-      {error && <p className="text-sm text-rose-600 bg-rose-50 p-3 rounded-xl">{error}</p>}
-      <div className="flex flex-wrap gap-3">
-        {currentStatus === "pending" && (
-          <Button onClick={confirmOrder} disabled={loading}
-            className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700">
-            <Check className="mr-2 h-4 w-4" />
-            {loading ? "Confirming..." : "Confirm Order"}
-          </Button>
-        )}
-        {currentStatus === "confirmed" && (
-          <Button onClick={markPreparing} disabled={loading}
-            className="rounded-full bg-sky-600 px-5 py-3 text-sm font-semibold text-white hover:bg-sky-700">
+      {error && <p role="alert" className="rounded-lg bg-danger/10 p-3 text-sm text-danger-text">{error}</p>}
+      {choices.length > 0 ? (
+        <div className="space-y-3">
+          {choices.length > 1 && (
+            <label className="block space-y-2 text-sm font-medium text-text">
+              <span>Next status</span>
+              <select value={nextStatus} onChange={(event) => setSelectedStatus(event.target.value)}
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2.5">
+                {choices.map((choice) => <option value={choice.value} key={choice.value}>{choice.label}</option>)}
+              </select>
+            </label>
+          )}
+          <label className="block space-y-2 text-sm font-medium text-text">
+            <span>Tracking note (optional)</span>
+            <textarea value={trackingNote} onChange={(event) => setTrackingNote(event.target.value)}
+              maxLength={2000} rows={2} placeholder="Add useful delivery details for the buyer"
+              className="w-full rounded-lg border border-border px-3 py-2.5" />
+          </label>
+          <Button onClick={updateStatus} disabled={loading || !nextStatus}
+            className="rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-on hover:bg-accent-hover disabled:opacity-60">
             <Truck className="mr-2 h-4 w-4" />
-            {loading ? "Updating..." : "Mark as Preparing"}
+            {loading ? "Updating…" : `Update to ${choices.find((item) => item.value === nextStatus)?.label}`}
           </Button>
-        )}
-        {currentStatus === "preparing" && (
-          <Button onClick={shipOrder} disabled={loading}
-            className="rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white hover:bg-orange-700">
-            <Truck className="mr-2 h-4 w-4" />
-            {loading ? "Updating..." : "Out for Delivery"}
-          </Button>
-        )}
-        {currentStatus === "out_for_delivery" && (
-          <Button onClick={markDelivered} disabled={loading}
-            className="rounded-full bg-purple-600 px-5 py-3 text-sm font-semibold text-white hover:bg-purple-700">
-            <CheckCircle2 className="mr-2 h-4 w-4" />
-            {loading ? "Marking..." : "Mark as Delivered"}
-          </Button>
-        )}
-        <Button
-          onClick={() => router.push(`/messages?with=${buyerId}`)}
-          className="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-700"
-        >
+        </div>
+      ) : (
+        <p className={`text-sm font-medium ${currentStatus === "cancelled" ? "text-danger-text" : "text-accent-text"}`}>
+          {currentStatus === "cancelled" ? "Order cancelled" : "Order completed"}
+        </p>
+      )}
+      {buyerId && (
+        <Button onClick={() => router.push(`/messages?with=${buyerId}`)}
+        variant="outline" className="rounded-md px-5 py-3 text-sm font-semibold">
           <MessageCircle className="mr-2 h-4 w-4" /> Message Buyer
         </Button>
-      </div>
-      {currentStatus === "delivered" && (
-        <p className="text-sm text-emerald-600 font-medium">✓ Order completed</p>
-      )}
-      {currentStatus === "cancelled" && (
-        <p className="text-sm text-rose-600 font-medium">✗ Order cancelled</p>
       )}
     </div>
   );

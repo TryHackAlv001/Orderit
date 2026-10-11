@@ -106,8 +106,8 @@ export function AvatarUpload({
         onClick={handleClick}
         className={`relative flex h-32 w-32 items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
           isUploading
-            ? "border-slate-300 bg-slate-100"
-            : "border-slate-300 bg-slate-50 hover:border-slate-400"
+            ? "border-border bg-surface-raised"
+            : "border-border bg-bg hover:border-muted"
         } ${isUploading ? "cursor-not-allowed" : "cursor-pointer"}`}
       >
         {preview ? (
@@ -121,7 +121,7 @@ export function AvatarUpload({
               <button
                 type="button"
                 onClick={handleRemove}
-                className="absolute -right-2 -top-2 rounded-full bg-rose-500 p-1 text-white hover:bg-rose-600"
+                className="absolute -right-2 -top-2 rounded-full bg-danger p-1 text-accent-on transition-colors duration-200 hover:brightness-95"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -130,11 +130,11 @@ export function AvatarUpload({
         ) : (
           <div className="text-center">
             {isUploading ? (
-              <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
+              <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted" />
             ) : (
               <>
-                <Upload className="mx-auto h-6 w-6 text-slate-400" />
-                <p className="mt-1 text-xs font-medium text-slate-600">Upload image</p>
+                <Upload className="mx-auto h-6 w-6 text-muted" />
+                <p className="mt-1 text-xs font-medium text-muted">Upload image</p>
               </>
             )}
           </div>
@@ -142,7 +142,7 @@ export function AvatarUpload({
       </div>
 
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs text-rose-700">
+        <div className="rounded-md border border-danger/30 bg-danger/10 p-2 text-xs text-danger-text">
           {error}
         </div>
       )}

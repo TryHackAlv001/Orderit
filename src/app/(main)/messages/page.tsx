@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations, useMessages } from '@/hooks/useMessages';
+import { useOnlinePresence } from '@/hooks/useOnlinePresence';
 import { ConversationList } from '@/components/messaging/ConversationList';
 import { ChatWindow } from '@/components/messaging/ChatWindow';
 
@@ -15,6 +16,10 @@ export default function MessagesPage() {
 
   const { conversations, loading: conversationsLoading } = useConversations(user?.id);
   const { messages, loading: messagesLoading, sendMessage } = useMessages(activeConversationId, user?.id);
+  const onlineUserIds = useOnlinePresence();
+  const activeConversation = conversations.find(
+    (conversation) => conversation.otherUserId === activeConversationId
+  ) ?? null;
 
   // Handle ?with= parameter to auto-select conversation
   useEffect(() => {
@@ -57,14 +62,15 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-bg">
       {/* Conversation List */}
-      <div className={`${isMobile ? (showChat ? 'hidden' : 'w-full') : 'w-1/3'} border-r border-gray-200`}>
+      <div className={`${isMobile ? (showChat ? 'hidden' : 'w-full') : 'w-1/3'} border-r border-border`}>
         <ConversationList
           conversations={conversations}
           activeConversationId={activeConversationId}
           loading={conversationsLoading}
           onSelect={handleSelectConversation}
+          onlineUserIds={onlineUserIds}
         />
       </div>
 
@@ -78,11 +84,13 @@ export default function MessagesPage() {
             onSendMessage={sendMessage}
             onBack={isMobile ? handleBackToList : undefined}
             currentUserId={user.id}
+            conversation={activeConversation}
+            isOtherUserOnline={onlineUserIds.has(activeConversationId)}
           />
         ) : (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <p className="text-gray-500">Select a conversation to start chatting</p>
+              <p className="text-muted">Select a conversation to start chatting</p>
             </div>
           </div>
         )}

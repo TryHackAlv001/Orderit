@@ -199,53 +199,53 @@ export default function VendorProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
-        <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-          <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#1a7a4a]" />
-          <p className="mt-4 text-sm font-medium text-slate-700">Loading your profile…</p>
+      <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-12">
+        <div className="rounded-lg border border-border bg-surface p-10 text-center shadow-sm">
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-accent-text" />
+          <p className="mt-4 text-sm font-medium text-text">Loading your profile…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10">
-      <Toaster position="top-right" />
+    <div className="min-h-screen bg-bg py-10">
+      <Toaster position="top-right" toastOptions={{ style: { background: "var(--surface-raised)", color: "var(--foreground)", border: "1px solid var(--border)", boxShadow: "var(--shadow-soft)" }, success: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } }, error: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } } }} />
       <div className="mx-auto w-full max-w-6xl px-4">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#1a7a4a]">Vendor Account</p>
-            <h1 className="mt-2 text-3xl font-bold text-slate-900">My Profile</h1>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent-text">Vendor Account</p>
+            <h1 className="mt-2 text-3xl font-bold text-text">My Profile</h1>
           </div>
-          <Link href="/vendor/settings" className="inline-flex items-center justify-center rounded-full bg-[#1a7a4a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700">
+          <Link href="/vendor/settings" className="inline-flex items-center justify-center rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-on transition hover:bg-accent-hover">
             Full Store Settings
           </Link>
         </div>
 
         {errorMessage ? (
-          <div className="mb-6 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <div className="mb-6 rounded-lg border border-danger bg-danger/10 p-4 text-sm text-danger-text">
             {errorMessage}
           </div>
         ) : null}
 
         <form onSubmit={handleSave} className="space-y-8">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-slate-900">Personal Info</h2>
-                <p className="text-sm text-slate-600">Update your account details and avatar.</p>
+                <h2 className="text-xl font-semibold text-text">Personal Info</h2>
+                <p className="text-sm text-muted">Update your account details and avatar.</p>
               </div>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-2">Profile Avatar</label>
+                  <label className="block text-sm font-medium text-text mb-2">Profile Avatar</label>
                   <ImageUpload value={avatarUrls} onChange={setAvatarUrls} maxImages={1} pathPrefix="avatars/" />
                 </div>
 
                 <div>
-                  <label htmlFor="fullName" className="block text-sm font-medium text-slate-900 mb-2">Full Name</label>
+                  <label htmlFor="fullName" className="block text-sm font-medium text-text mb-2">Full Name</label>
                   <Input
                     id="fullName"
                     type="text"
@@ -256,7 +256,7 @@ export default function VendorProfilePage() {
                 </div>
 
                 <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-slate-900 mb-2">Phone Number</label>
+                  <label htmlFor="phone" className="block text-sm font-medium text-text mb-2">Phone Number</label>
                   <Input
                     id="phone"
                     type="tel"
@@ -269,33 +269,33 @@ export default function VendorProfilePage() {
 
               <div className="space-y-5">
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-slate-900 mb-2">Email Address</label>
+                  <label htmlFor="email" className="block text-sm font-medium text-text mb-2">Email Address</label>
                   <Input
                     id="email"
                     type="email"
                     value={currentUser?.email ?? ''}
                     disabled
-                    className="cursor-not-allowed bg-slate-100 text-slate-500"
+                    className="cursor-not-allowed bg-surface-raised text-muted"
                   />
                 </div>
               </div>
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-slate-900">Store Info</h2>
-                <p className="text-sm text-slate-600">Quick shop details. Manage the full store profile in settings.</p>
+                <h2 className="text-xl font-semibold text-text">Store Info</h2>
+                <p className="text-sm text-muted">Quick shop details. Manage the full store profile in settings.</p>
               </div>
-              <Link href="/vendor/settings" className="text-sm font-semibold text-[#1a7a4a] hover:text-emerald-700">
+              <Link href="/vendor/settings" className="text-sm font-semibold text-accent-text hover:text-accent-text">
                 Full Store Settings
               </Link>
             </div>
 
             <div className="space-y-6">
               <div>
-                <label htmlFor="shopName" className="block text-sm font-medium text-slate-900 mb-2">Shop Name</label>
+                <label htmlFor="shopName" className="block text-sm font-medium text-text mb-2">Shop Name</label>
                 <Input
                   id="shopName"
                   type="text"
@@ -306,19 +306,19 @@ export default function VendorProfilePage() {
               </div>
 
               <div>
-                <label htmlFor="shopDescription" className="block text-sm font-medium text-slate-900 mb-2">Shop Description</label>
+                <label htmlFor="shopDescription" className="block text-sm font-medium text-text mb-2">Shop Description</label>
                 <textarea
                   id="shopDescription"
                   value={shopDescription}
                   onChange={(event) => setShopDescription(event.target.value)}
                   rows={4}
-                  className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-[#1a7a4a] focus:ring-2 focus:ring-[#d1f4dc]"
+                  className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text shadow-sm outline-none transition-colors duration-200 focus:border-accent focus:ring-2 focus:ring-ring"
                   placeholder="Short summary of your shop"
                 />
               </div>
 
               <div>
-                <label htmlFor="location" className="block text-sm font-medium text-slate-900 mb-2">Location</label>
+                <label htmlFor="location" className="block text-sm font-medium text-text mb-2">Location</label>
                 <Input
                   id="location"
                   type="text"
@@ -330,26 +330,26 @@ export default function VendorProfilePage() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-slate-900">Change Password</h2>
-              <p className="text-sm text-slate-600">Update your account password securely.</p>
+              <h2 className="text-xl font-semibold text-text">Change Password</h2>
+              <p className="text-sm text-muted">Update your account password securely.</p>
             </div>
 
             {passwordMessage ? (
-              <div className="mb-4 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <div className="mb-4 rounded-lg border border-danger bg-danger/10 p-4 text-sm text-danger-text">
                 {passwordMessage}
               </div>
             ) : null}
             {passwordSuccessMessage ? (
-              <div className="mb-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+              <div className="mb-4 rounded-lg border border-accent bg-accent/10 p-4 text-sm text-accent-text">
                 {passwordSuccessMessage}
               </div>
             ) : null}
 
             <div className="grid gap-6 lg:grid-cols-3">
               <div>
-                <label htmlFor="currentPassword" className="block text-sm font-medium text-slate-900 mb-2">Current Password</label>
+                <label htmlFor="currentPassword" className="block text-sm font-medium text-text mb-2">Current Password</label>
                 <Input
                   id="currentPassword"
                   type="password"
@@ -359,7 +359,7 @@ export default function VendorProfilePage() {
                 />
               </div>
               <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-slate-900 mb-2">New Password</label>
+                <label htmlFor="newPassword" className="block text-sm font-medium text-text mb-2">New Password</label>
                 <Input
                   id="newPassword"
                   type="password"
@@ -369,7 +369,7 @@ export default function VendorProfilePage() {
                 />
               </div>
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-900 mb-2">Confirm Password</label>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-text mb-2">Confirm Password</label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -382,8 +382,8 @@ export default function VendorProfilePage() {
           </section>
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-slate-600">Updates will be saved to your account and quick vendor profile.</div>
-            <Button type="submit" className="bg-[#1a7a4a] hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400">
+            <div className="text-sm text-muted">Updates will be saved to your account and quick vendor profile.</div>
+            <Button type="submit" className="bg-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-surface-raised disabled:text-muted">
               {saving ? 'Saving...' : 'Save Profile'}
             </Button>
           </div>

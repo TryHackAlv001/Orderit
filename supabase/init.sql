@@ -195,6 +195,7 @@ create policy "Users can update their own profile" on public.users for update us
 create policy "Admins can manage users" on public.users for all using (public.is_admin());
 
 -- Vendor profile policies
+create policy "Public can view vendor profiles" on public.vendor_profiles for select using (true);
 create policy "Vendors can view own profile" on public.vendor_profiles for select using (auth.uid() = user_id or public.is_admin());
 create policy "Vendors can manage own profile" on public.vendor_profiles for update using (auth.uid() = user_id or public.is_admin()) with check (auth.uid() = user_id or public.is_admin());
 create policy "Admins can manage vendor profiles" on public.vendor_profiles for all using (public.is_admin());

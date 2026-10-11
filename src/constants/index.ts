@@ -98,6 +98,16 @@ export const CURRENCY_OPTIONS: CurrencyOption[] = [
 
 export const DEFAULT_CURRENCY = "NGN";
 
+export const MARKETPLACE_ANNOUNCEMENTS = [
+  { id: "shipping", text: "Free shipping on qualifying orders" },
+  { id: "delivery", text: "Delivery guarantee · Refund for any issues" },
+] as const;
+
+export const HOME_HERO_COPY = {
+  tagline: "Shop the season's best",
+  heading: "EXPLORE YOUR INTERESTS",
+} as const;
+
 export function getCurrencyOption(code: string) {
   return CURRENCY_OPTIONS.find((option) => option.code === code) ?? CURRENCY_OPTIONS[0];
 }

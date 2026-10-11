@@ -27,29 +27,29 @@ export function RatingSummary({
         {[...Array(5)].map((_, i) => (
           <div key={i}>
             {i < fullStars ? (
-              <Star className={`${starSize} fill-yellow-400 text-yellow-400`} />
+              <Star className={`${starSize} fill-warning text-text`} />
             ) : i === fullStars && hasHalfStar ? (
               <div className="relative">
-                <Star className={`${starSize} text-slate-300`} />
+                <Star className={`${starSize} text-muted`} />
                 <div className="absolute inset-0 overflow-hidden w-1/2">
-                  <Star className={`${starSize} fill-yellow-400 text-yellow-400`} />
+                  <Star className={`${starSize} fill-warning text-text`} />
                 </div>
               </div>
             ) : (
-              <Star className={`${starSize} text-slate-300`} />
+              <Star className={`${starSize} text-muted`} />
             )}
           </div>
         ))}
       </div>
 
       {/* Rating Number */}
-      <span className={`font-medium text-slate-900 ${size === 'sm' ? 'text-xs' : 'text-sm'}`}>
+      <span className={`font-medium text-text ${size === 'sm' ? 'text-xs' : 'text-sm'}`}>
         {rating.toFixed(1)}
       </span>
 
       {/* Count */}
       {showCount && (
-        <span className={`text-slate-500 ${size === 'sm' ? 'text-xs' : 'text-sm'}`}>
+        <span className={`text-muted ${size === 'sm' ? 'text-xs' : 'text-sm'}`}>
           ({reviewCount})
         </span>
       )}

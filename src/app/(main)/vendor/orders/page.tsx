@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { statusLabel, statusColor } from "@/lib/order-status";
 
@@ -10,6 +11,7 @@ interface VendorOrderRow {
   buyer_id: string;
   buyer_name: string;
   items_count: number;
+  items: { product_name: string; selected_size: string | null }[];
   total: number;
   status: string;
   created_at: string;
@@ -44,6 +46,7 @@ export default function VendorOrdersPage() {
 
   const loadOrders = async () => {
     setLoading(true);
+    setError(null);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -75,7 +78,7 @@ export default function VendorOrdersPage() {
       return;
     }
 
-    const vendorId = vp.id;
+    const vendorId = user.id;
 
     const { data, error: ordersError } = await supabase
       .from("orders")
@@ -93,21 +96,26 @@ export default function VendorOrdersPage() {
     const orderIds = orderList.map((o: any) => o.id);
     const buyerIds = Array.from(new Set(orderList.map((o: any) => o.buyer_id).filter(Boolean)));
 
-    const { data: buyers } = buyerIds.length
-      ? await supabase.from("users").select("id,full_name").in("id", buyerIds)
-      : { data: [] };
+    const { data: buyers, error: buyersError } = buyerIds.length
+      ? await supabase.rpc("vendor_order_buyer_profiles", { p_buyer_ids: buyerIds })
+      : { data: [], error: null };
+    if (buyersError) {
+      console.error("Vendor order buyer profiles failed to load:", buyersError.message);
+      setError("Buyer profile details could not be loaded. Please refresh or try again later.");
+    }
 
     const { data: items } = orderIds.length
-      ? await supabase.from("order_items").select("order_id").in("order_id", orderIds)
+      ? await supabase.from("order_items").select("order_id,product_name,selected_size").in("order_id", orderIds)
       : { data: [] };
 
-    const itemsCountByOrder: Record<string, number> = (items || []).reduce((acc: any, it: any) => {
-      acc[it.order_id] = (acc[it.order_id] || 0) + 1;
+    const itemsByOrder: Record<string, { product_name: string; selected_size: string | null }[]> = (items || []).reduce((acc: any, item: any) => {
+      acc[item.order_id] ??= [];
+      acc[item.order_id].push({ product_name: item.product_name, selected_size: item.selected_size });
       return acc;
     }, {});
 
     const buyersById: Record<string, any> = (buyers || []).reduce((acc: any, b: any) => {
-      acc[b.id] = b;
+      acc[b.buyer_id] = b;
       return acc;
     }, {});
 
@@ -115,8 +123,9 @@ export default function VendorOrdersPage() {
       orderList.map((order: any) => ({
         id: order.id,
         buyer_id: order.buyer_id,
-        buyer_name: buyersById[order.buyer_id]?.full_name || "Unknown buyer",
-        items_count: itemsCountByOrder[order.id] || 0,
+        buyer_name: buyersById[order.buyer_id]?.full_name || buyersById[order.buyer_id]?.email || "Unknown buyer",
+        items_count: itemsByOrder[order.id]?.length || 0,
+        items: itemsByOrder[order.id] || [],
         total: Number(order.total || 0),
         status: order.status,
         created_at: order.created_at,
@@ -168,7 +177,7 @@ export default function VendorOrdersPage() {
   if (loading) {
     return (
       <div className="flex min-h-[350px] items-center justify-center">
-        <div className="animate-spin h-10 w-10 rounded-full border-4 border-t-transparent border-[#1a7a4a]" />
+        <div className="animate-spin h-10 w-10 rounded-full border-4 border-t-transparent border-accent" />
       </div>
     );
   }
@@ -177,12 +186,15 @@ export default function VendorOrdersPage() {
     <div className="px-4 py-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-slate-900">Vendor Orders</h1>
-          <p className="mt-2 text-sm text-slate-600">Review all orders and update status as they progress.</p>
+          <h1 className="text-3xl font-semibold text-text">Vendor Orders</h1>
+          <p className="mt-2 text-sm text-muted">Review all orders and update status as they progress.</p>
         </div>
+        <Link href="/vendor/returns" className="rounded-full border border-accent px-5 py-3 text-sm font-semibold text-accent-text hover:bg-accent/10">
+          Return requests
+        </Link>
       </div>
 
-      <div className="mb-6 overflow-x-auto rounded-3xl bg-white p-4 shadow-sm">
+      <div className="mb-6 overflow-x-auto rounded-lg bg-surface p-4 shadow-sm">
         <div className="flex flex-wrap gap-2">
           {tabs.map((tab) => (
             <button
@@ -191,8 +203,8 @@ export default function VendorOrdersPage() {
               onClick={() => setActiveTab(tab.key)}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                 activeTab === tab.key
-                  ? "bg-[#1a7a4a] text-white"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  ? "bg-accent text-accent-on"
+                  : "bg-surface-raised text-text hover:bg-surface-raised"
               }`}
             >
               {tab.label}
@@ -202,12 +214,12 @@ export default function VendorOrdersPage() {
       </div>
 
       {error && (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>
+        <div className="rounded-lg border border-danger bg-danger/10 p-4 text-sm text-danger-text">{error}</div>
       )}
 
       {filteredOrders.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center text-slate-600">
-          <p className="text-xl font-semibold text-slate-900">No orders here yet.</p>
+        <div className="rounded-lg border border-dashed border-border bg-bg p-12 text-center text-muted">
+          <p className="text-xl font-semibold text-text">No orders here yet.</p>
           <p className="mt-2">
             {activeTab === "preparing"
               ? "Preparing orders are not available in this workflow yet."
@@ -215,9 +227,9 @@ export default function VendorOrdersPage() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
           <table className="min-w-full border-collapse text-left text-sm">
-            <thead className="bg-slate-50 text-slate-700">
+            <thead className="bg-bg text-text">
               <tr>
                 <th className="px-4 py-4">Order ID</th>
                 <th className="px-4 py-4">Buyer</th>
@@ -230,22 +242,31 @@ export default function VendorOrdersPage() {
             </thead>
             <tbody>
               {filteredOrders.map((order) => (
-                <tr key={order.id} className="border-t border-slate-200 hover:bg-slate-50">
-                  <td className="px-4 py-4 text-slate-900">{order.id.slice(0, 8)}</td>
-                  <td className="px-4 py-4 text-slate-900">{order.buyer_name}</td>
-                  <td className="px-4 py-4 text-slate-900">{order.items_count}</td>
-                  <td className="px-4 py-4 text-slate-900">₦{order.total.toLocaleString()}</td>
+                <tr key={order.id} className="border-t border-border hover:bg-bg">
+                  <td className="px-4 py-4 text-text">{order.id.slice(0, 8)}</td>
+                  <td className="px-4 py-4 text-text">{order.buyer_name}</td>
+                  <td className="px-4 py-4 text-text">
+                    <span>{order.items_count}</span>
+                    {order.items.some((item) => item.selected_size) && (
+                      <span className="mt-1 block max-w-64 text-xs text-muted">
+                        {order.items.filter((item) => item.selected_size)
+                          .map((item) => `${item.product_name}: ${item.selected_size}`)
+                          .join(" · ")}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4 text-text">₦{order.total.toLocaleString()}</td>
                   <td className="px-4 py-4">
                     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusColor(order.status)}`}>
                       {statusLabel(order.status)}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-slate-600">{new Date(order.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}</td>
+                  <td className="px-4 py-4 text-muted">{new Date(order.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}</td>
                   <td className="px-4 py-4 flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => router.push(`/vendor/orders/${order.id}`)}
-                      className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 transition hover:bg-slate-50"
+                      className="rounded-full border border-border bg-surface px-3 py-2 text-xs font-semibold text-text transition hover:bg-bg"
                     >
                       View
                     </button>
@@ -253,7 +274,7 @@ export default function VendorOrdersPage() {
                       <button
                         type="button"
                         onClick={() => performOrderAction(order.id, "confirm")}
-                        className="rounded-full bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                        className="rounded-full bg-accent px-3 py-2 text-xs font-semibold text-accent-on hover:bg-accent-hover"
                       >
                         Confirm
                       </button>
@@ -262,7 +283,7 @@ export default function VendorOrdersPage() {
                       <button
                         type="button"
                         onClick={() => performOrderAction(order.id, "ship")}
-                        className="rounded-full bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700"
+                        className="rounded-md bg-accent px-3 py-2 text-xs font-semibold text-accent-on transition-colors duration-200 hover:brightness-95"
                       >
                         Mark as Preparing
                       </button>
@@ -271,7 +292,7 @@ export default function VendorOrdersPage() {
                       <button
                         type="button"
                         onClick={() => performOrderAction(order.id, "ship")}
-                        className="rounded-full bg-orange-600 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-700"
+                        className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-semibold text-text transition-colors duration-200 hover:bg-warning/20"
                       >
                         Out for Delivery
                       </button>
@@ -280,7 +301,7 @@ export default function VendorOrdersPage() {
                       <button
                         type="button"
                         onClick={() => performOrderAction(order.id, "deliver")}
-                        className="rounded-full bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-700"
+                        className="rounded-full bg-accent px-3 py-2 text-xs font-semibold text-accent-on hover:bg-accent-hover"
                       >
                         Mark as Delivered
                       </button>

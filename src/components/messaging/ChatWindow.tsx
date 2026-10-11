@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Send, Smile } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
-import type { MessageWithRelations } from '@/types';
+import type { ConversationPreview, MessageWithRelations } from '@/types';
 
 interface ChatWindowProps {
   conversationId: string;
@@ -12,6 +12,8 @@ interface ChatWindowProps {
   onSendMessage: (content: string, orderId?: string) => Promise<any>;
   onBack?: () => void;
   currentUserId: string;
+  conversation: ConversationPreview | null;
+  isOtherUserOnline: boolean;
 }
 
 export function ChatWindow({
@@ -21,6 +23,8 @@ export function ChatWindow({
   onSendMessage,
   onBack,
   currentUserId,
+  conversation,
+  isOtherUserOnline,
 }: ChatWindowProps) {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -58,6 +62,17 @@ export function ChatWindow({
   // Get conversation info
   const otherUser = messages.find(m => m.sender_id !== currentUserId)?.sender ||
                    messages.find(m => m.receiver_id !== currentUserId)?.receiver;
+  const vendorProfile = Array.isArray(otherUser?.vendor_profiles)
+    ? otherUser.vendor_profiles[0]
+    : otherUser?.vendor_profiles;
+  const displayName = conversation?.displayName ||
+    (otherUser?.role === 'vendor'
+      ? vendorProfile?.shop_name || otherUser.full_name
+      : otherUser?.full_name) ||
+    'Unknown User';
+  const avatarUrl = conversation?.avatarUrl ||
+    (otherUser?.role === 'vendor' ? vendorProfile?.logo_url : otherUser?.avatar_url);
+  const role = conversation?.role || otherUser?.role;
 
   const orderId = messages.find(m => m.order_id)?.order_id;
 
@@ -65,48 +80,50 @@ export function ChatWindow({
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-2 text-gray-500">Loading messages...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto"></div>
+          <p className="mt-2 text-muted">Loading messages...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-surface">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 p-4">
+      <div className="flex items-center justify-between border-b border-border p-4">
         <div className="flex items-center gap-3">
           {onBack && (
             <button
               onClick={onBack}
-              className="rounded-full p-2 hover:bg-gray-100 md:hidden"
+              className="rounded-full p-2 hover:bg-surface-raised md:hidden"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-              {otherUser?.avatar_url ? (
+            <div className="h-10 w-10 rounded-full bg-surface-raised flex items-center justify-center">
+              {avatarUrl ? (
                 <img
-                  src={otherUser.avatar_url}
-                  alt={otherUser.full_name || 'User'}
+                  src={avatarUrl}
+                  alt={displayName}
                   className="h-10 w-10 rounded-full object-cover"
                 />
               ) : (
-                <span className="text-sm font-semibold text-gray-600">
-                  {(otherUser?.full_name || otherUser?.vendor_profiles?.[0]?.shop_name || 'User').split(' ').map(n => n[0]).join('').slice(0, 2)}
+                <span className="text-sm font-semibold text-muted">
+                  {displayName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                 </span>
               )}
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">
-                {otherUser?.role === 'vendor'
-                  ? (otherUser.vendor_profiles?.[0]?.shop_name || otherUser.full_name || 'Unknown Vendor')
-                  : (otherUser?.full_name || 'Unknown User')}
-              </h3>
-              <p className="text-sm text-gray-500">
-                {otherUser?.role === 'vendor' ? 'Vendor' : 'Buyer'} • Online
+              <h3 className="font-semibold text-text">{displayName}</h3>
+              <p className="flex items-center gap-1.5 text-sm text-muted">
+                <span>{role === 'vendor' ? 'Vendor' : role === 'admin' ? 'Admin' : role === 'buyer' ? 'Buyer' : 'User'}</span>
+                <span aria-hidden="true">•</span>
+                <span
+                  aria-label={isOtherUserOnline ? 'Online' : 'Offline'}
+                  className={`h-2 w-2 rounded-full ${isOtherUserOnline ? 'bg-green-600' : 'bg-[#450011]'}`}
+                />
+                <span>{isOtherUserOnline ? 'Online' : 'Offline'}</span>
               </p>
             </div>
           </div>
@@ -115,8 +132,8 @@ export function ChatWindow({
 
       {/* Order Banner */}
       {orderId && (
-        <div className="bg-blue-50 border-b border-blue-200 p-3">
-          <p className="text-sm text-blue-700">
+        <div className="bg-accent/10 border-b border-accent p-3">
+          <p className="text-sm text-accent-text">
             This conversation is about Order #{orderId.slice(0, 8)}
           </p>
         </div>
@@ -127,7 +144,7 @@ export function ChatWindow({
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <p className="text-gray-500">No messages yet. Start the conversation!</p>
+              <p className="text-muted">No messages yet. Start the conversation!</p>
             </div>
           </div>
         ) : (
@@ -141,7 +158,7 @@ export function ChatWindow({
                   text={msg.content}
                   incoming={msg.sender_id !== currentUserId}
                 />
-                <div className={`flex items-center gap-1 mt-1 text-xs text-gray-500 ${
+                <div className={`flex items-center gap-1 mt-1 text-xs text-muted ${
                   msg.sender_id === currentUserId ? 'justify-end' : 'justify-start'
                 }`}>
                   <span>{new Date(msg.created_at).toLocaleTimeString([], {
@@ -160,7 +177,7 @@ export function ChatWindow({
       </div>
 
       {/* Input Bar */}
-      <div className="border-t border-gray-200 p-4">
+      <div className="border-t border-border p-4">
         <div className="flex items-end gap-3">
           <div className="flex-1">
             <textarea
@@ -168,7 +185,7 @@ export function ChatWindow({
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type a message..."
-              className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+              className="w-full resize-none rounded-lg border border-border px-3 py-2 focus:border-accent focus:outline-none"
               rows={1}
               style={{ minHeight: '40px', maxHeight: '120px' }}
               onInput={(e) => {
@@ -179,7 +196,7 @@ export function ChatWindow({
             />
           </div>
           <button
-            className="rounded-full p-2 text-gray-400 hover:text-gray-600"
+            className="rounded-full p-2 text-muted hover:text-muted"
             // Emoji picker would go here
           >
             <Smile className="h-5 w-5" />
@@ -187,7 +204,7 @@ export function ChatWindow({
           <button
             onClick={handleSendMessage}
             disabled={!message.trim() || sending}
-            className="rounded-full bg-blue-500 p-2 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-full bg-accent p-2 text-accent-on hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="h-5 w-5" />
           </button>

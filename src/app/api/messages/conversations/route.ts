@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdminClient } from '@/lib/supabase-admin';
 import type { ConversationPreview } from '@/types';
 
+function getVendorProfile(user: any) {
+  const profiles = user?.vendor_profiles;
+  return Array.isArray(profiles) ? profiles[0] : profiles;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -66,10 +71,15 @@ export async function GET(request: NextRequest) {
     const partnerInfo = new Map<string, any>();
     if (partnersToFetch.size > 0) {
       // Get partner user data
-      const { data: partners } = await supabaseAdminClient
+      const { data: partners, error: partnersError } = await supabaseAdminClient
         .from('users')
         .select('id, full_name, avatar_url, role, vendor_profiles(user_id, shop_name, logo_url)')
         .in('id', Array.from(partnersToFetch));
+
+      if (partnersError) {
+        console.error('Error fetching conversation partners:', partnersError);
+        return NextResponse.json({ error: 'Failed to fetch conversation partners' }, { status: 500 });
+      }
 
       partners?.forEach((partner: any) => {
         partnerInfo.set(partner.id, partner);
@@ -81,12 +91,13 @@ export async function GET(request: NextRequest) {
       const otherUser = partnerInfo.get(otherUserId) || (message.sender_id === currentUserId ? message.receiver : message.sender);
 
       if (!conversationMap.has(otherUserId)) {
+        const vendorProfile = getVendorProfile(otherUser);
         const displayName = otherUser?.role === 'vendor'
-          ? (otherUser?.vendor_profiles?.[0]?.shop_name || otherUser?.full_name || 'Unknown Vendor')
+          ? (vendorProfile?.shop_name || otherUser?.full_name || 'Unknown Vendor')
           : (otherUser?.full_name || 'Unknown User');
 
         const avatarUrl = otherUser?.role === 'vendor'
-          ? otherUser?.vendor_profiles?.[0]?.logo_url
+          ? vendorProfile?.logo_url
           : otherUser?.avatar_url;
 
         conversationMap.set(otherUserId, {

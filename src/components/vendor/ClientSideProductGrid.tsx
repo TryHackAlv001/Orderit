@@ -39,7 +39,7 @@ export default function ClientSideProductGrid({ vendorId, products, isOwner = fa
 
       {/* Search Bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
         <Input
           placeholder="Search products..."
           value={searchQuery}
@@ -51,7 +51,7 @@ export default function ClientSideProductGrid({ vendorId, products, isOwner = fa
       {categories && categories.length > 0 && (
         <div className="flex gap-3 overflow-x-auto">
           <button
-            className={`rounded-full px-4 py-2 text-sm ${!activeCategory ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700'}`}
+            className={`rounded-full px-4 py-2 text-sm ${!activeCategory ? 'bg-accent text-accent-on' : 'bg-surface-raised text-text'}`}
             onClick={() => setActiveCategory(null)}
           >
             All
@@ -59,7 +59,7 @@ export default function ClientSideProductGrid({ vendorId, products, isOwner = fa
           {categories.map((c) => (
             <button
               key={c.id}
-              className={`rounded-full px-4 py-2 text-sm ${activeCategory === c.id ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700'}`}
+              className={`rounded-full px-4 py-2 text-sm ${activeCategory === c.id ? 'bg-accent text-accent-on' : 'bg-surface-raised text-text'}`}
               onClick={() => setActiveCategory(c.id)}
             >
               {c.name}

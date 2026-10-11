@@ -1,426 +1,607 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Bell, Menu, Search, ShoppingCart, X, Package, MessageSquare, Star, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  Bell, Check, ChevronDown, Menu, MessageSquare, Monitor, Moon, Package,
+  Search, Settings, ShoppingCart, Star, Sun, X,
+} from "lucide-react";
+import { PRODUCT_CATEGORIES, getCurrencyOption } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
-import { useAuthStore } from "@/store/authStore";
-import { useCartStore } from "@/store/cartStore";
 import { useNotifications } from "@/hooks/useNotifications";
 import type { NotificationType } from "@/lib/notifications";
+import { useAuthStore } from "@/store/authStore";
+import { useCartStore } from "@/store/cartStore";
+import { useCurrencyStore } from "@/store/currencyStore";
+
+type ThemePreference = "light" | "dark" | "system";
+type HeaderMenu = "navigation" | "profile" | null;
+
+const themeOptions = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+] as const;
 
 function formatTimeAgo(date: string) {
-  const now = new Date();
-  const notificationDate = new Date(date);
-  const diffInSeconds = Math.floor((now.getTime() - notificationDate.getTime()) / 1000);
-
-  if (diffInSeconds < 60) return 'Just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  const elapsedSeconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  if (elapsedSeconds < 60) return "Just now";
+  if (elapsedSeconds < 3600) return `${Math.floor(elapsedSeconds / 60)}m ago`;
+  if (elapsedSeconds < 86400) return `${Math.floor(elapsedSeconds / 3600)}h ago`;
+  return `${Math.floor(elapsedSeconds / 86400)}d ago`;
 }
 
 function getNotificationIcon(type: NotificationType) {
   switch (type) {
-    case 'order':
-      return <Package className="h-4 w-4" />;
-    case 'message':
-      return <MessageSquare className="h-4 w-4" />;
-    case 'review':
-      return <Star className="h-4 w-4" />;
-    default:
-      return <Settings className="h-4 w-4" />;
+    case "order": return <Package className="h-4 w-4" />;
+    case "message": return <MessageSquare className="h-4 w-4" />;
+    case "review": return <Star className="h-4 w-4" />;
+    default: return <Settings className="h-4 w-4" />;
   }
 }
 
-export function Navbar() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+interface NavbarProps {
+  variant?: "neutral" | "home";
+}
+
+export function Navbar({ variant = "neutral" }: NavbarProps) {
+  const [openMenu, setOpenMenu] = useState<HeaderMenu>(null);
+  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchExamples, setSearchExamples] = useState<string[]>(PRODUCT_CATEGORIES);
+  const [searchExampleIndex, setSearchExampleIndex] = useState(0);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
+  const pathname = usePathname();
+  const navigationButtonRef = useRef<HTMLButtonElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
+  const navigationPanelRef = useRef<HTMLDivElement>(null);
+  const profilePanelRef = useRef<HTMLDivElement>(null);
+  const previousPathnameRef = useRef(pathname);
   const { user, profile } = useAuthStore();
-  const { signOut } = useAuth();
-  const cartCount = useCartStore((state) => state.items.length);
+  const { signOut, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+  const cartCount = useCartStore((state) => state.items.reduce((count, item) => count + item.quantity, 0));
+  const currencyCode = useCurrencyStore((state) => state.currency);
+  const currency = getCurrencyOption(currencyCode);
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user?.id);
   const isVendor = user?.role === "vendor";
-  const isBuyer = user?.role === "buyer";
+  const accountHref = isVendor ? "/vendor/orders" : user ? "/buyer/orders" : "/login";
+  const profileHref = isVendor ? "/vendor/profile" : "/buyer/profile";
+  const settingsHref = isVendor ? "/vendor/settings" : "/buyer/profile#account-security";
 
-  // Close dropdowns when clicking outside
+  const closeMenu = useCallback((restoreFocus = false) => {
+    const previouslyOpen = openMenu;
+    setOpenMenu(null);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => {
+        (previouslyOpen === "profile" ? profileButtonRef : navigationButtonRef).current?.focus();
+      });
+    }
+  }, [openMenu]);
+
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (!target.closest('[data-dropdown="categories"]') && categoriesOpen) {
-        setCategoriesOpen(false);
+    if (!openMenu) return;
+    const panel = openMenu === "navigation" ? navigationPanelRef.current : profilePanelRef.current;
+    const trigger = openMenu === "navigation" ? navigationButtonRef.current : profileButtonRef.current;
+    const getFocusable = () => Array.from(panel?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), summary, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ) ?? []).filter((element) => element.offsetParent !== null);
+
+    window.requestAnimationFrame(() => getFocusable()[0]?.focus());
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (panel?.contains(target) || trigger?.contains(target)) return;
+      closeMenu(true);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu(true);
+        return;
       }
-      if (!target.closest('[data-dropdown="profile"]') && profileOpen) {
-        setProfileOpen(false);
-      }
-      if (!target.closest('[data-dropdown="notifications"]') && notificationsOpen) {
-        setNotificationsOpen(false);
+
+      const focusable = getFocusable();
+      if (!focusable.length) return;
+      const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+
+      if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+        event.preventDefault();
+        focusable[(currentIndex + 1 + focusable.length) % focusable.length].focus();
+      } else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+        event.preventDefault();
+        focusable[(currentIndex - 1 + focusable.length) % focusable.length].focus();
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        focusable[0].focus();
+      } else if (event.key === "End") {
+        event.preventDefault();
+        focusable[focusable.length - 1].focus();
+      } else if (event.key === "Tab") {
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || currentIndex === -1)) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || currentIndex === -1)) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [categoriesOpen, profileOpen, notificationsOpen]);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [closeMenu, openMenu]);
 
-  const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
+  useEffect(() => {
+    if (previousPathnameRef.current !== pathname) {
+      previousPathnameRef.current = pathname;
+      closeMenu(true);
+    }
+  }, [pathname, closeMenu]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/products/suggestions", { signal: controller.signal })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Unable to load search examples.");
+        setSearchExamples([...(result.suggestions ?? []), ...(result.categories ?? [])]);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === "AbortError") return;
+        console.error("Search placeholder examples failed:", error);
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (searchExamples.length < 2) return;
+    const interval = window.setInterval(() => {
+      setSearchExampleIndex((index) => (index + 1) % searchExamples.length);
+    }, 7000);
+    return () => window.clearInterval(interval);
+  }, [searchExamples]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchSuggestions([]);
+      setSuggestionError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/products/suggestions?q=${encodeURIComponent(query)}`,
+          { signal: controller.signal },
+        );
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Unable to load search suggestions.");
+        setSearchSuggestions(result.suggestions ?? []);
+        setSuggestionError(null);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        console.error("Product search suggestions failed:", error);
+        setSearchSuggestions([]);
+        setSuggestionError(
+          error instanceof Error ? error.message : "Unable to load search suggestions.",
+        );
+      }
+    }, 200);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    let preference: ThemePreference = "system";
+    try {
+      const saved = window.localStorage.getItem("tradeloft-theme");
+      if (saved === "light" || saved === "dark" || saved === "system") preference = saved;
+    } catch {}
+    setThemePreference(preference);
+    document.documentElement.dataset.theme = preference === "system"
+      ? mediaQuery.matches ? "dark" : "light"
+      : preference;
+
+    const handleSystemChange = (event: MediaQueryListEvent) => {
+      if (preference === "system") document.documentElement.dataset.theme = event.matches ? "dark" : "light";
+    };
+    mediaQuery.addEventListener("change", handleSystemChange);
+    return () => mediaQuery.removeEventListener("change", handleSystemChange);
+  }, []);
+
+  const selectTheme = (preference: ThemePreference) => {
+    setThemePreference(preference);
+    try {
+      window.localStorage.setItem("tradeloft-theme", preference);
+    } catch {}
+    const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.theme = preference === "system"
+      ? systemDark ? "dark" : "light"
+      : preference;
+    setThemeMenuOpen(false);
+  };
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = searchQuery.trim();
-    if (query) {
-      router.push(`/marketplace/search?q=${encodeURIComponent(query)}`);
-      setSearchQuery('');
-    }
+    if (!query) return;
+    router.push(`/marketplace/search?q=${encodeURIComponent(query)}`);
+    setSearchQuery("");
+    closeMenu(true);
   };
 
   const handleNotificationClick = async (notificationId: string, link?: string) => {
     await markAsRead(notificationId);
     setNotificationsOpen(false);
-    if (link) {
-      router.push(link);
+    if (link) router.push(link);
+  };
+
+  const renderThemeMenu = () => (
+    <div className="flex gap-2" role="group" aria-label="Theme preference">
+      {themeOptions.map(({ value, label, icon: Icon }) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={themePreference === value}
+          onClick={() => selectTheme(value)}
+          className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Icon className="h-4 w-4" />
+          {label}
+          {themePreference === value && <Check className="h-3.5 w-3.5" />}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderAccountMenu = (closeMobile = false) => (
+    <>
+      <Link
+        href={profileHref}
+        onClick={() => {
+          closeMenu(true);
+          if (closeMobile) setOpenMenu(null);
+        }}
+        className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        My Profile
+      </Link>
+      <Link
+        href="/messages"
+        onClick={() => {
+          closeMenu(true);
+          if (closeMobile) setOpenMenu(null);
+        }}
+        className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Messages
+      </Link>
+      <Link
+        href={accountHref}
+        onClick={() => {
+          closeMenu(true);
+          if (closeMobile) setOpenMenu(null);
+        }}
+        className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Orders
+      </Link>
+      {isVendor && (
+        <Link
+          href="/vendor/dashboard"
+          onClick={() => {
+            closeMenu(true);
+            if (closeMobile) setOpenMenu(null);
+          }}
+          className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Vendor Dashboard
+        </Link>
+      )}
+      <Link
+        href={settingsHref}
+        onClick={() => {
+          closeMenu(false);
+          if (closeMobile) setOpenMenu(null);
+        }}
+        className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Settings
+      </Link>
+      <button
+        type="button"
+        onClick={() => {
+          closeMenu(false);
+          if (closeMobile) setOpenMenu(null);
+          void signOut();
+        }}
+        className="block w-full rounded-lg px-3 py-2 text-left text-sm text-danger-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Sign Out
+      </button>
+    </>
+  );
+
+  const closeAfterNavigation = () => closeMenu(true);
+  const toggleHeaderMenu = (menu: Exclude<HeaderMenu, null>) => {
+    if (openMenu === menu) {
+      closeMenu(true);
+      return;
     }
+    setOpenMenu(menu);
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-2xl font-bold tracking-tight text-[#1a7a4a]">
-            Tradeloft
-          </Link>
-          <div className="hidden items-center gap-3 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 md:flex">
-            <form onSubmit={handleSearchSubmit} className="flex items-center gap-3 w-full">
-              <Search className="h-4 w-4 text-slate-500" />
-              <input
-                className="w-72 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
-                type="search"
-                placeholder="Search products, vendors..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </form>
+    <header data-variant={variant} className={`sticky top-0 z-40 border-b border-border shadow-sm backdrop-blur-xl ${variant === "home" ? "navbar-home" : "bg-surface/95"}`}>
+      <div className="mx-auto flex max-w-[1600px] items-center gap-2 px-2 py-3 sm:gap-3 sm:px-6">
+        <Link href="/" className="home-header-text shrink-0 font-display text-lg font-bold tracking-tight text-accent-text sm:text-2xl">
+          Tradeloft
+        </Link>
 
-          </div>
-        </div>
-
-        <nav className="hidden items-center gap-6 text-sm font-medium text-slate-700 lg:flex">
-          <Link href="/marketplace" className="hover:text-slate-900">
-            Marketplace
-          </Link>
-          <Link href="/vendor" className="hover:text-slate-900">
-            Vendors
-          </Link>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setCategoriesOpen((open) => !open)}
-              className="flex items-center gap-1 hover:text-slate-900"
-              data-dropdown="categories"
-            >
-              Categories
-            </button>
-            {categoriesOpen ? (
-              <div className="absolute left-0 top-full mt-2 w-48 rounded-3xl border border-slate-200 bg-white p-4 shadow-lg" data-dropdown="categories">
-                {[
-                  "Electronics",
-                  "Phones & Accessories",
-                  "Fashion",
-                  "Beauty & Personal Care",
-                  "Home & Kitchen",
-                  "Jewelry & Watches",
-                  "Food & Drinks",
-                  "Groceries",
-                  "Sports & Outdoors",
-                  "Automotive",
-                  "Others",
-                ].map((category) => (
-                  <Link
-                    key={category}
-                    href={`/marketplace?category=${encodeURIComponent(category)}`}
-                    className="block rounded-2xl px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                  >
-                    {category}
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-          </div>
+        <nav aria-label="Marketplace" className="home-header-text hidden shrink-0 items-center gap-4 text-sm font-medium text-text 2xl:flex">
+          <button type="button" disabled title="Product-level sales ranking is not available yet." className="home-header-muted cursor-not-allowed opacity-70">
+            Best-Selling
+          </button>
+          <Link href="/marketplace?rating=4" className="hover:text-accent-text">Top Rated</Link>
+          <Link href="/marketplace?sort=newest" className="hover:text-accent-text">New In</Link>
+          <details className="relative">
+            <summary className="flex cursor-pointer list-none items-center gap-1 hover:text-accent-text">
+              Categories <ChevronDown className="h-4 w-4" />
+            </summary>
+            <div className="absolute left-0 top-full z-50 mt-3 max-h-[70vh] w-64 overflow-y-auto rounded-xl border border-border bg-surface p-2 shadow-lg">
+              {PRODUCT_CATEGORIES.map((category) => (
+                <Link
+                  key={category}
+                  href={`/marketplace?category=${encodeURIComponent(category)}`}
+                  className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {category}
+                </Link>
+              ))}
+            </div>
+          </details>
+          <Link href="/vendors" className="hover:text-accent-text">Vendors</Link>
         </nav>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 md:hidden">
-            <button type="button" className="rounded-full bg-slate-100 p-2 text-slate-700" aria-label="Search">
-              <Search className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              className="rounded-full bg-slate-100 p-2 text-slate-700"
-              aria-label="Menu"
-              onClick={() => setMobileOpen((value) => !value)}
-            >
-              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
+        <form onSubmit={handleSearchSubmit} className="home-search relative mx-auto flex min-w-0 max-w-2xl flex-1 items-center rounded-full border border-border bg-bg p-1 pl-2 focus-within:ring-2 focus-within:ring-ring sm:pl-4">
+          <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
+          <div className="relative min-w-0 flex-1">
+            <input
+              className="relative z-10 w-full min-w-0 bg-transparent px-1 py-2 text-sm text-text placeholder:text-transparent focus:outline-none sm:px-2"
+              type="search"
+              aria-label="Search products and vendors"
+              placeholder={`Search ${searchExamples[searchExampleIndex] ?? "products"}...`}
+              value={searchQuery}
+              list="product-search-suggestions"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+            {!searchQuery && !searchFocused && searchExamples.length > 0 && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 left-1 right-1 flex items-center overflow-hidden whitespace-nowrap text-ellipsis text-sm text-muted sm:left-2"
+              >
+                <span key={searchExampleIndex} className="search-placeholder-enter">
+                  Search {searchExamples[searchExampleIndex]}...
+                </span>
+              </span>
+            )}
+          </div>
+          <datalist id="product-search-suggestions">
+            {searchSuggestions.map((suggestion) => (
+              <option key={suggestion} value={suggestion} />
+            ))}
+          </datalist>
+          <button type="submit" aria-label="Submit search" className="home-search-submit flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-on hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Search className="h-4 w-4" aria-hidden="true" />
+          </button>
+          {suggestionError && (
+            <p role="alert" className="absolute left-0 top-full z-50 mt-2 rounded-lg border border-danger/30 bg-surface px-3 py-2 text-xs text-danger-text shadow-lg">
+              {suggestionError}
+            </p>
+          )}
+        </form>
+
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+          <div className="home-header-text hidden shrink-0 items-center gap-3 text-sm font-medium text-text xl:flex">
+            <Link href={accountHref} className="whitespace-nowrap hover:text-accent-text">Orders &amp; Account</Link>
+            <Link href="/messages" className="hover:text-accent-text">Support</Link>
+            <span className="whitespace-nowrap text-muted" aria-label={`Language English, currency ${currency.code}`}>
+              EN / {currency.code} {currency.symbol}
+            </span>
           </div>
 
-          {user ? (
-            <div className="flex items-center gap-3">
-              <Link href="/cart" className="relative rounded-full bg-slate-100 p-2 text-slate-700 hover:bg-slate-200">
-                <ShoppingCart className="h-5 w-5" />
-                {cartCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-600 px-1.5 text-[0.65rem] font-semibold text-white">
-                    {cartCount}
-                  </span>
-                ) : null}
-              </Link>
-              <div className="relative">
-                <button
-                  type="button"
-                  className="relative rounded-full bg-slate-100 p-2 text-slate-700 hover:bg-slate-200"
-                  onClick={() => setNotificationsOpen((open) => !open)}
-                  aria-label="Notifications"
-                  data-dropdown="notifications"
-                >
-                  <Bell className="h-5 w-5" />
-                  {unreadCount > 0 ? (
-                    <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-[0.65rem] font-semibold text-white">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  ) : null}
-                </button>
-                {notificationsOpen ? (
-                  <div className="absolute right-0 mt-3 w-80 rounded-3xl border border-slate-200 bg-white shadow-lg" data-dropdown="notifications">
-                    <div className="flex items-center justify-between border-b border-slate-200 p-4">
-                      <h3 className="font-semibold text-slate-900">Notifications</h3>
-                      {unreadCount > 0 && (
-                        <button
-                          onClick={markAllAsRead}
-                          className="text-sm text-blue-600 hover:text-blue-700"
-                        >
-                          Mark all read
-                        </button>
-                      )}
-                    </div>
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-4 text-center text-slate-500">
-                          No notifications yet
-                        </div>
-                      ) : (
-                        notifications.map((notification) => (
-                          <button
-                            key={notification.id}
-                            onClick={() => handleNotificationClick(notification.id, notification.link)}
-                            className={`w-full border-b border-slate-100 p-4 text-left hover:bg-slate-50 ${
-                              !notification.is_read ? 'bg-blue-50' : ''
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`rounded-full p-2 ${
-                                notification.type === 'order' ? 'bg-blue-100 text-blue-600' :
-                                notification.type === 'message' ? 'bg-green-100 text-green-600' :
-                                notification.type === 'review' ? 'bg-yellow-100 text-yellow-600' :
-                                'bg-gray-100 text-gray-600'
-                              }`}>
-                                {getNotificationIcon(notification.type as NotificationType)}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-slate-900">
-                                  {notification.title}
-                                </p>
-                                <p className="text-sm text-slate-600 line-clamp-2">
-                                  {notification.body}
-                                </p>
-                                <p className="text-xs text-slate-500 mt-1">
-                                  {formatTimeAgo(notification.created_at)}
-                                </p>
-                              </div>
-                              {!notification.is_read && (
-                                <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                              )}
-                            </div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                    <div className="border-t border-slate-200 p-3">
-                      <Link
-                        href={user?.role === 'vendor' ? '/vendor/notifications' : '/buyer/notifications'}
-                        className="block w-full rounded-2xl bg-slate-100 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-200"
-                        onClick={() => setNotificationsOpen(false)}
-                      >
-                        View all
-                      </Link>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-              <div className="relative">
-                <button
-                  type="button"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white"
-                  aria-label="Profile menu"
-                  onClick={() => setProfileOpen((open) => !open)}
-                  data-dropdown="profile"
-                >
-                  {user.full_name?.slice(0, 1) ?? "U"}
-                </button>
-                {profileOpen ? (
-                  <div className="absolute right-0 mt-3 w-56 rounded-3xl border border-slate-200 bg-white text-slate-700 shadow-lg" data-dropdown="profile">
-                    <Link href="/messages" className="block px-4 py-3 text-sm hover:bg-slate-100">
-                      Messages
-                    </Link>
-                    {isVendor ? (
-                      <>
-                        {profile?.id ? (
-                          <Link href={`/vendor/${profile.id}/store`} className="block px-4 py-3 text-sm hover:bg-slate-100">
-                            My Store
-                          </Link>
-                        ) : null}
-                        <Link href="/vendor/profile" className="block px-4 py-3 text-sm hover:bg-slate-100">
-                          My Profile
-                        </Link>
-                        <Link href="/vendor/dashboard" className="block px-4 py-3 text-sm hover:bg-slate-100">
-                          Vendor Dashboard
-                        </Link>
-                        <Link href="/vendor/products" className="block px-4 py-3 text-sm hover:bg-slate-100">
-                          My Products
-                        </Link>
-                        <Link href="/vendor/orders" className="block px-4 py-3 text-sm hover:bg-slate-100">
-                          My Orders
-                        </Link>
-                      </>
-                    ) : null}
-                    {isBuyer ? (
-                      <>
-                        <Link href="/buyer/orders" className="block px-4 py-3 text-sm hover:bg-slate-100">
-                          My Orders
-                        </Link>
-                        <Link href="/buyer/profile" className="block px-4 py-3 text-sm hover:bg-slate-100">
-                          My Profile
-                        </Link>
-                      </>
-                    ) : null}
-                    <Link href={isVendor ? "/vendor/notifications" : "/buyer/notifications"} className="block px-4 py-3 text-sm hover:bg-slate-100">
-                      Notifications
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => signOut()}
-                      className="w-full rounded-b-3xl px-4 py-3 text-left text-sm text-red-600 hover:bg-slate-100"
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <div className="hidden items-center gap-3 md:flex">
-              <Link href="/login" className="rounded-full border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
-                Login
-              </Link>
-              <Link href="/register" className="rounded-full bg-[#1a7a4a] px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-                Register
-              </Link>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {mobileOpen ? (
-        <div className="border-t border-slate-200 bg-white px-4 py-4 md:hidden">
-          <nav className="space-y-3">
-            <Link href="/marketplace" className="block rounded-3xl px-4 py-3 text-base font-semibold text-slate-700 hover:bg-slate-100">
-              Marketplace
-            </Link>
-            <Link href="/vendor" className="block rounded-3xl px-4 py-3 text-base font-semibold text-slate-700 hover:bg-slate-100">
-              Vendors
-            </Link>
-            <details className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
-              <summary className="cursor-pointer text-base font-semibold text-slate-700">Categories</summary>
-              <div className="mt-3 space-y-2">
-                {[
-                  "Electronics",
-                  "Phones & Accessories",
-                  "Fashion",
-                  "Beauty & Personal Care",
-                  "Home & Kitchen",
-                  "Jewelry & Watches",
-                  "Food & Drinks",
-                  "Groceries",
-                  "Sports & Outdoors",
-                  "Automotive",
-                  "Others",
-                ].map((category) => (
-                  <Link
-                    key={category}
-                    href={`/marketplace?category=${encodeURIComponent(category)}`}
-                    className="block rounded-2xl px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                  >
-                    {category}
-                  </Link>
-                ))}
-              </div>
-            </details>
-            {user ? (
-              <div className="space-y-2 rounded-3xl border border-slate-200 bg-slate-50 p-3">
-                <Link href="/messages" className="block rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                  Messages
-                </Link>
-                {isVendor ? (
-                  <>
-                    <Link href="/vendor/dashboard" className="block rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                      Vendor Dashboard
-                    </Link>
-                    <Link href="/vendor/profile" className="block rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                      My Profile
-                    </Link>
-                    <Link href="/vendor/products" className="block rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                      My Products
-                    </Link>
-                    <Link href="/vendor/orders" className="block rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                      My Orders
-                    </Link>
-                  </>
-                ) : null}
-                {isBuyer ? (
-                  <>
-                    <Link href="/buyer/orders" className="block rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                      My Orders
-                    </Link>
-                    <Link href="/buyer/profile" className="block rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                      My Profile
-                    </Link>
-                  </>
-                ) : null}
-                <Link href={isVendor ? "/vendor/notifications" : "/buyer/notifications"} className="block rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-slate-100">
-                  Notifications
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => signOut()}
-                  className="w-full rounded-2xl bg-red-600 px-4 py-3 text-left text-sm font-semibold text-white hover:bg-red-700"
-                >
-                  Sign Out
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <Link href="/login" className="block rounded-3xl border border-emerald-700 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700">
-                  Login
-                </Link>
-                <Link href="/register" className="block rounded-3xl bg-[#1a7a4a] px-4 py-3 text-center text-sm font-semibold text-white">
-                  Register
-                </Link>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              className="home-header-text flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted hover:bg-surface-raised hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:w-10"
+              aria-label={`Theme: ${themePreference}`}
+              aria-haspopup="true"
+              aria-expanded={themeMenuOpen}
+              onClick={() => setThemeMenuOpen((open) => !open)}
+            >
+              {themePreference === "light" ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : themePreference === "dark" ? <Moon className="h-4 w-4 sm:h-5 sm:w-5" /> : <Monitor className="h-4 w-4 sm:h-5 sm:w-5" />}
+            </button>
+            {themeMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 max-w-[90vw] rounded-xl border border-border bg-surface p-3 shadow-lg">
+                {renderThemeMenu()}
               </div>
             )}
-          </nav>
+          </div>
+
+          {user && (
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                className="home-header-text relative flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted hover:bg-surface-raised hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:w-10"
+                onClick={() => setNotificationsOpen((open) => !open)}
+                aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+                aria-expanded={notificationsOpen}
+              >
+                <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+                {unreadCount > 0 && <span className="home-header-badge absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-accent-on">{unreadCount > 99 ? "99+" : unreadCount}</span>}
+              </button>
+              {notificationsOpen && (
+                <div className="absolute right-0 top-full z-50 mt-2 w-[min(90vw,20rem)] overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+                  <div className="flex items-center justify-between border-b border-border p-4">
+                    <h2 className="font-semibold text-text">Notifications</h2>
+                    {unreadCount > 0 && <button type="button" onClick={markAllAsRead} className="text-xs font-semibold text-accent-text hover:underline">Mark all read</button>}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <p className="p-5 text-sm text-muted">You&apos;re all caught up.</p>
+                    ) : notifications.slice(0, 8).map((notification) => (
+                      <button
+                        key={notification.id}
+                        type="button"
+                        onClick={() => handleNotificationClick(notification.id, notification.link)}
+                        className={`flex w-full gap-3 border-b border-border p-4 text-left hover:bg-surface-raised ${!notification.is_read ? "bg-accent/10" : ""}`}
+                      >
+                        <span className="mt-0.5 text-accent-text">{getNotificationIcon(notification.type as NotificationType)}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium text-text">{notification.title}</span>
+                          <span className="mt-1 block line-clamp-2 text-xs text-muted">{notification.body}</span>
+                          <span className="mt-1 block text-[11px] text-muted">{formatTimeAgo(notification.created_at)}</span>
+                        </span>
+                        {!notification.is_read && <span className="mt-1.5 h-2 w-2 rounded-full bg-accent" />}
+                      </button>
+                    ))}
+                  </div>
+                  <Link href={isVendor ? "/vendor/notifications" : "/buyer/notifications"} onClick={() => setNotificationsOpen(false)} className="block border-t border-border p-3 text-center text-sm font-medium text-text hover:bg-surface-raised">View all</Link>
+                </div>
+              )}
+            </div>
+          )}
+
+          <Link href="/cart" className="home-header-text relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:w-10" aria-label={`Cart${cartCount ? `, ${cartCount} items` : ""}`}>
+            <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
+            {cartCount > 0 && <span className="home-header-badge absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-accent-on">{cartCount > 99 ? "99+" : cartCount}</span>}
+          </Link>
+
+          <div className="relative shrink-0">
+            {authLoading ? (
+              <div aria-label="Loading account" className="h-9 w-9 animate-pulse rounded-full bg-surface-raised sm:h-10 sm:w-10" />
+            ) : user ? (
+              <>
+                <button
+                  ref={profileButtonRef}
+                  type="button"
+                  className="home-header-text flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border bg-accent font-semibold text-accent-on focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:w-10"
+                  aria-label="Open profile menu"
+                  aria-haspopup="true"
+                  aria-expanded={openMenu === "profile"}
+                  aria-controls="navbar-profile-menu"
+                  onClick={() => toggleHeaderMenu("profile")}
+                >
+                  {user.avatar_url ? (
+                    <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    user.full_name?.trim().slice(0, 1).toUpperCase() || user.email?.slice(0, 1).toUpperCase() || "U"
+                  )}
+                </button>
+                {openMenu === "profile" && (
+                  <div
+                    id="navbar-profile-menu"
+                    ref={profilePanelRef}
+                    className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-5rem)] w-[min(90vw,14rem)] overflow-y-auto rounded-xl border border-border bg-surface p-2 shadow-lg"
+                  >
+                    {isVendor && profile?.id && (
+                      <Link href={`/vendor/${profile.id}/store`} onClick={closeAfterNavigation} className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">My Store</Link>
+                    )}
+                    {renderAccountMenu()}
+                  </div>
+                )}
+              </>
+            ) : (
+              <Link href="/login" className="flex h-9 items-center rounded-full border border-border px-3 text-xs font-semibold text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:px-4 sm:text-sm">
+                Sign In
+              </Link>
+            )}
+          </div>
+
+          <div className="relative shrink-0">
+            <button
+              ref={navigationButtonRef}
+              type="button"
+              className="home-header-text flex h-9 w-9 items-center justify-center rounded-full border border-border text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:w-10"
+              aria-label={openMenu === "navigation" ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={openMenu === "navigation"}
+              aria-controls="navbar-navigation-menu"
+              onClick={() => toggleHeaderMenu("navigation")}
+            >
+              {openMenu === "navigation" ? <X className="h-4 w-4 sm:h-5 sm:w-5" /> : <Menu className="h-4 w-4 sm:h-5 sm:w-5" />}
+            </button>
+            {openMenu === "navigation" && (
+              <div
+                id="navbar-navigation-menu"
+                ref={navigationPanelRef}
+                className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-5rem)] w-[min(90vw,20rem)] overflow-y-auto rounded-xl border border-border bg-surface p-4 shadow-xl"
+              >
+                <nav aria-label="Navigation menu" className="space-y-2">
+                  <button type="button" disabled title="Product-level sales ranking is not available yet." className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted opacity-70">
+                    Best-Selling
+                  </button>
+                  <Link href="/marketplace?rating=4" onClick={closeAfterNavigation} className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Top Rated</Link>
+                  <Link href="/marketplace?sort=newest" onClick={closeAfterNavigation} className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">New In</Link>
+                  <details className="rounded-lg border border-border p-3">
+                    <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-text">
+                      Categories <ChevronDown className="h-4 w-4" />
+                    </summary>
+                    <div className="mt-2 max-h-48 overflow-y-auto">
+                      {PRODUCT_CATEGORIES.map((category) => (
+                        <Link key={category} href={`/marketplace?category=${encodeURIComponent(category)}`} onClick={closeAfterNavigation} className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{category}</Link>
+                      ))}
+                    </div>
+                  </details>
+                  <Link href="/vendors" onClick={closeAfterNavigation} className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Vendors</Link>
+                  <div className="border-t border-border pt-2">
+                    <Link href={accountHref} onClick={closeAfterNavigation} className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Orders &amp; Account</Link>
+                    <Link href="/messages" onClick={closeAfterNavigation} className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Support</Link>
+                    {user && <Link href={isVendor ? "/vendor/notifications" : "/buyer/notifications"} onClick={closeAfterNavigation} className="block rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Notifications{unreadCount > 0 ? ` (${unreadCount})` : ""}</Link>}
+                  </div>
+                  <p className="px-3 py-2 text-sm text-muted" aria-label={`Language English, currency ${currency.code}`}>
+                    EN / {currency.code} {currency.symbol}
+                  </p>
+                  <div className="border-t border-border pt-3">
+                    <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-muted">Theme</p>
+                    {renderThemeMenu()}
+                  </div>
+                  {!authLoading && (user ? (
+                    <button type="button" onClick={() => { closeMenu(true); void signOut(); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm text-danger-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Sign Out</button>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 border-t border-border pt-3">
+                      <Link href="/login" onClick={closeAfterNavigation} className="rounded-full border border-border px-3 py-2 text-center text-sm font-semibold text-text hover:bg-surface-raised">Sign In</Link>
+                      <Link href="/register" onClick={closeAfterNavigation} className="rounded-full bg-accent px-3 py-2 text-center text-sm font-semibold text-accent-on hover:bg-accent-hover">Sign Up</Link>
+                    </div>
+                  ))}
+                </nav>
+              </div>
+            )}
+          </div>
         </div>
-      ) : null}
+      </div>
     </header>
   );
 }

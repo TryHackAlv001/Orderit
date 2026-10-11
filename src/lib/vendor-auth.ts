@@ -16,7 +16,7 @@ export async function requireVendorUser() {
   }
 
   const { data: user, error } = await supabase
-    .from<VendorSession>("users")
+    .from("users")
     .select("id, role")
     .eq("id", userId)
     .single();

@@ -8,12 +8,12 @@ interface StatsCardProps {
 
 export function StatsCard({ title, value, icon }: StatsCardProps) {
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <article className="rounded-lg border border-border bg-surface p-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm uppercase tracking-[0.2em] text-slate-500">{title}</p>
-        {icon && <div className="text-slate-400">{icon}</div>}
+        <p className="text-sm uppercase tracking-[0.2em] text-muted">{title}</p>
+        {icon && <div className="text-muted">{icon}</div>}
       </div>
-      <p className="text-3xl font-semibold text-slate-900">{value}</p>
+      <p className="font-display text-3xl font-semibold text-text">{value}</p>
     </article>
   );
 }

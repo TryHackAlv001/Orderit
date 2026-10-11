@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BuyerOrdersPage } from "./BuyerOrdersClient";
@@ -16,6 +15,7 @@ interface Order {
   order_items: {
     product_name: string;
     product_image?: string;
+    selected_size?: string | null;
   }[];
 }
 
@@ -53,7 +53,7 @@ async function getOrders(userId: string): Promise<Order[]> {
       payment_status,
       created_at,
       vendor:vendor_profiles(shop_name, logo_url),
-      order_items(id, product_name, quantity, price_at_purchase, product_image)
+      order_items(id, product_name, quantity, price_at_purchase, product_image, selected_size)
     `)
     .eq("buyer_id", userId)
     .order("created_at", { ascending: false });

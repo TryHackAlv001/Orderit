@@ -1,5 +1,6 @@
 'use client';
 
+import Image from "next/image";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { X, Upload, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -70,8 +71,8 @@ export function ImageUpload({ value, onChange, maxImages = 5, pathPrefix }: Imag
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition ${
-          isDragging ? "border-[#1a7a4a] bg-emerald-50" : "border-slate-300 hover:border-[#1a7a4a] hover:bg-slate-50"
+        className={`relative flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed p-8 transition-colors duration-200 ${
+          isDragging ? "border-accent bg-accent/10" : "border-border hover:border-accent hover:bg-surface-raised"
         }`}
       >
         <input
@@ -83,12 +84,12 @@ export function ImageUpload({ value, onChange, maxImages = 5, pathPrefix }: Imag
           onChange={(e) => e.target.files && handleFiles(e.target.files)}
         />
         {isUploading ? (
-          <div className="flex flex-col items-center gap-2 text-slate-500">
-            <Loader2 className="h-8 w-8 animate-spin text-[#1a7a4a]" />
+          <div className="flex flex-col items-center gap-2 text-muted">
+            <Loader2 className="h-8 w-8 animate-spin text-accent-text" />
             <p className="text-sm">Uploading...</p>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2 text-slate-500">
+          <div className="flex flex-col items-center gap-2 text-muted">
             <Upload className="h-8 w-8" />
             <p className="text-sm font-medium">Click to upload or drag images here</p>
             <p className="text-xs">JPG, PNG, WEBP up to 5MB — max {maxImages} images</p>
@@ -97,18 +98,25 @@ export function ImageUpload({ value, onChange, maxImages = 5, pathPrefix }: Imag
       </div>
 
       {/* Error */}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger-text">{error}</p>}
 
       {/* Previews */}
       {value.length > 0 && (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
           {value.map((url, index) => (
-            <div key={url} className="relative aspect-square overflow-hidden rounded-xl border border-slate-200">
-              <img src={url} alt={`Product ${index + 1}`} className="h-full w-full object-cover" />
+            <div key={url} className="relative aspect-square overflow-hidden rounded-md border border-border">
+              <Image
+                src={url}
+                alt={`Product ${index + 1}`}
+                fill
+                unoptimized
+                sizes="(max-width: 640px) 33vw, 20vw"
+                className="object-cover"
+              />
               <button
                 type="button"
                 onClick={() => removeImage(index)}
-                className="absolute right-1 top-1 rounded-full bg-red-500 p-0.5 text-white hover:bg-red-600"
+                className="absolute right-1 top-1 rounded-full bg-danger p-0.5 text-accent-on transition-colors duration-200 hover:brightness-95"
               >
                 <X className="h-3 w-3" />
               </button>

@@ -93,7 +93,7 @@ export function PaymentButtons({
   return (
     <div className="space-y-3">
       {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+        <div className="rounded-md border border-danger/30 bg-danger/10 p-3 text-sm text-danger-text">
           {error}
         </div>
       )}
@@ -103,7 +103,7 @@ export function PaymentButtons({
           type="button"
           onClick={handlePaystackPayment}
           disabled={loading !== null}
-          className="bg-gradient-to-r from-[#0052b1] to-[#0052b1] hover:opacity-90"
+          className="transition-colors duration-200"
         >
           {loading === "paystack" ? (
             <>
@@ -119,7 +119,7 @@ export function PaymentButtons({
           type="button"
           onClick={handleFlutterwavePayment}
           disabled={loading !== null}
-          className="bg-gradient-to-r from-[#f0ad4e] to-[#ec971f] hover:opacity-90"
+          variant="outline"
         >
           {loading === "flutterwave" ? (
             <>

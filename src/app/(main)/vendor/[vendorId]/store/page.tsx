@@ -5,7 +5,8 @@ import { StorefrontHeader } from '@/components/layout/StorefrontHeader';
 import ClientSideProductGrid from '@/components/vendor/ClientSideProductGrid';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Package, Star, MapPin, Phone, Mail, Clock } from 'lucide-react';
+import { Input } from '@/components/ui/Input';
+import { Package, Star, MapPin, Phone, Mail, Clock, Search, Filter } from 'lucide-react';
 import type { Product, VendorProfile, Category } from '@/types';
 
 interface VendorStorePageProps {
@@ -164,16 +165,22 @@ async function getVendorProducts(vendorId: string, search?: string, categoryFilt
 async function getVendorCategories(vendorId: string) {
   const supabase = createSupabaseServerClient();
 
-  const { data: categories } = await supabase
+  const { data: categories, error } = await supabase
     .from('categories')
-    .select(`
-      *,
-      _count:products(count)
-    `)
+    .select('id,name,slug,products!inner(id)')
     .eq('products.vendor_id', vendorId)
     .eq('products.is_active', true);
 
-  return categories || [];
+  if (error) {
+    throw error;
+  }
+
+  return (categories || []).map((category) => ({
+    id: category.id,
+    name: category.name,
+    slug: category.slug,
+    _count: { products: category.products.length },
+  }));
 }
 
 export default async function VendorStorePage({ params }: VendorStorePageProps) {
@@ -223,15 +230,15 @@ export default async function VendorStorePage({ params }: VendorStorePageProps) 
       )}
 
       {/* Tabs */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-border">
         <div className="flex gap-8 overflow-x-auto">
           {['products', 'categories', 'about'].map((tab) => (
             <button
               key={tab}
               className={`border-b-2 px-4 py-4 font-medium capitalize transition whitespace-nowrap ${
                 tab === 'products'
-                  ? 'border-emerald-600 text-emerald-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
+                  ? 'border-accent text-accent-text'
+                  : 'border-transparent text-muted hover:text-text'
               }`}
             >
               {tab === 'products' ? 'All Products' : tab === 'categories' ? 'Categories' : 'About'}
@@ -248,7 +255,7 @@ export default async function VendorStorePage({ params }: VendorStorePageProps) 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                 <Input
                   placeholder="Search products..."
                   className="w-80 pl-10"
@@ -259,7 +266,7 @@ export default async function VendorStorePage({ params }: VendorStorePageProps) 
                 Filter
               </Button>
             </div>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted">
               {products.length} product{products.length !== 1 ? 's' : ''} available
             </p>
           </div>
@@ -268,9 +275,9 @@ export default async function VendorStorePage({ params }: VendorStorePageProps) 
           {/* We'll render a client-side grid so owner can toggle public/owner view */}
           {products.length === 0 ? (
             <div className="py-20 text-center">
-              <Package className="mx-auto h-16 w-16 text-slate-400" />
-              <h3 className="mt-4 text-xl font-semibold text-slate-900">No products yet</h3>
-              <p className="mt-2 text-slate-600">
+              <Package className="mx-auto h-16 w-16 text-muted" />
+              <h3 className="mt-4 text-xl font-semibold text-text">No products yet</h3>
+              <p className="mt-2 text-muted">
                 This vendor hasn't added any products to their store yet.
               </p>
             </div>
@@ -284,21 +291,21 @@ export default async function VendorStorePage({ params }: VendorStorePageProps) 
 
         {/* Categories Tab */}
         <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-slate-900">Product Categories</h2>
+          <h2 className="text-2xl font-bold text-text">Product Categories</h2>
           {categories.length === 0 ? (
             <div className="py-12 text-center">
-              <Package className="mx-auto h-12 w-12 text-slate-400" />
-              <p className="mt-4 text-slate-600">No categories available yet.</p>
+              <Package className="mx-auto h-12 w-12 text-muted" />
+              <p className="mt-4 text-muted">No categories available yet.</p>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {categories.map((category) => (
                 <div
                   key={category.id}
-                  className="rounded-lg border border-slate-200 p-6 hover:border-emerald-300 transition"
+                  className="rounded-lg border border-border p-6 hover:border-accent transition"
                 >
-                  <h3 className="font-semibold text-slate-900">{category.name}</h3>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <h3 className="font-semibold text-text">{category.name}</h3>
+                  <p className="mt-2 text-sm text-muted">
                     {category._count?.products || 0} products
                   </p>
                 </div>
@@ -312,8 +319,8 @@ export default async function VendorStorePage({ params }: VendorStorePageProps) 
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Shop Description */}
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-slate-900">About {vendor.shop_name}</h2>
-              <div className="prose prose-sm max-w-none text-slate-700">
+              <h2 className="text-2xl font-bold text-text">About {vendor.shop_name}</h2>
+              <div className="prose prose-sm max-w-none text-text">
                 {vendor.shop_description ? (
                   <p>{vendor.shop_description}</p>
                 ) : (
@@ -328,46 +335,46 @@ export default async function VendorStorePage({ params }: VendorStorePageProps) 
             {/* Contact & Policies */}
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Contact Information</h3>
+                <h3 className="text-lg font-semibold text-text mb-4">Contact Information</h3>
                 <div className="space-y-3">
                   {vendor.location && (
                     <div className="flex items-center gap-3">
-                      <MapPin className="h-5 w-5 text-slate-400" />
-                      <span className="text-slate-700">{vendor.location}</span>
+                      <MapPin className="h-5 w-5 text-muted" />
+                      <span className="text-text">{vendor.location}</span>
                     </div>
                   )}
                   {vendor.phone && (
                     <div className="flex items-center gap-3">
-                      <Phone className="h-5 w-5 text-slate-400" />
-                      <span className="text-slate-700">{vendor.phone}</span>
+                      <Phone className="h-5 w-5 text-muted" />
+                      <span className="text-text">{vendor.phone}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-3">
-                    <Mail className="h-5 w-5 text-slate-400" />
-                    <span className="text-slate-700">Contact via message</span>
+                    <Mail className="h-5 w-5 text-muted" />
+                    <span className="text-text">Contact via message</span>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Store Policies</h3>
-                <div className="space-y-3 text-sm text-slate-700">
+                <h3 className="text-lg font-semibold text-text mb-4">Store Policies</h3>
+                <div className="space-y-3 text-sm text-text">
                   <div className="flex items-center gap-3">
-                    <Clock className="h-5 w-5 text-slate-400" />
+                    <Clock className="h-5 w-5 text-muted" />
                     <div>
                       <p className="font-medium">Processing Time</p>
                       <p>Orders processed within 1-2 business days</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Package className="h-5 w-5 text-slate-400" />
+                    <Package className="h-5 w-5 text-muted" />
                     <div>
                       <p className="font-medium">Shipping</p>
                       <p>Free shipping on orders over ₦50,000</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Star className="h-5 w-5 text-slate-400" />
+                    <Star className="h-5 w-5 text-muted" />
                     <div>
                       <p className="font-medium">Returns</p>
                       <p>30-day return policy on all items</p>

@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getMissingCatalogFields } from "@/lib/product-attributes";
 
 interface VendorProductRow {
   id: string;
@@ -11,12 +13,16 @@ interface VendorProductRow {
   stock_quantity: number;
   is_active: boolean;
   images: string[];
+  brand: string;
+  is_complete: boolean;
   category?: { name: string };
+  variants: { color: string | null; size: string | null }[];
+  missingFields: string[];
 }
 
 const statusStyles = {
-  active: "bg-emerald-100 text-emerald-800",
-  draft: "bg-slate-100 text-slate-800",
+  active: "bg-accent/10 text-accent-text",
+  draft: "bg-surface-raised text-text",
 };
 
 export default function VendorProductsPage() {
@@ -49,7 +55,7 @@ export default function VendorProductsPage() {
 
       const { data, error: productsError } = await supabase
         .from("products")
-        .select(`id,name,price,stock_quantity,is_active,images,category_id`)
+        .select(`id,name,price,stock_quantity,is_active,images,category_id,brand,is_complete`)
         .eq("vendor_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -59,19 +65,44 @@ export default function VendorProductsPage() {
 
       const productList = data || [];
       const categoryIds = Array.from(new Set(productList.map((p: any) => p.category_id).filter(Boolean)));
-      
-      const { data: categories } = categoryIds.length
-        ? await supabase.from("categories").select("id,name").in("id", categoryIds)
-        : { data: [] };
+      const productIds = productList.map((p: any) => p.id);
+
+      const [{ data: categories }, { data: rules }, { data: variants, error: variantsError }] = await Promise.all([
+        categoryIds.length
+          ? supabase.from("categories").select("id,name").in("id", categoryIds)
+          : Promise.resolve({ data: [] }),
+        categoryIds.length
+          ? supabase.from("category_attribute_rules").select("category_id,requires_color,requires_size").in("category_id", categoryIds)
+          : Promise.resolve({ data: [] }),
+        productIds.length
+          ? supabase.from("product_variants").select("product_id,color,size").in("product_id", productIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (variantsError) setError(variantsError.message);
 
       const categoriesById: Record<string, any> = (categories || []).reduce((acc: any, cat: any) => {
         acc[cat.id] = cat;
         return acc;
       }, {});
+      const rulesByCategory: Record<string, any> = (rules || []).reduce((acc: any, rule: any) => {
+        acc[rule.category_id] = rule;
+        return acc;
+      }, {});
+      const variantsByProduct: Record<string, { color: string | null; size: string | null }[]> = {};
+      (variants || []).forEach((variant: any) => {
+        variantsByProduct[variant.product_id] ??= [];
+        variantsByProduct[variant.product_id].push(variant);
+      });
 
       const productsWithCategories = productList.map((p: any) => ({
         ...p,
         category: categoriesById[p.category_id],
+        variants: variantsByProduct[p.id] ?? [],
+        missingFields: getMissingCatalogFields(
+          p,
+          rulesByCategory[p.category_id],
+          variantsByProduct[p.id] ?? []
+        ),
       }));
 
       setProducts(productsWithCategories);
@@ -108,7 +139,7 @@ export default function VendorProductsPage() {
   if (loading) {
     return (
       <div className="flex min-h-[350px] items-center justify-center">
-        <div className="animate-spin h-10 w-10 rounded-full border-4 border-t-transparent border-[#1a7a4a]" />
+        <div className="animate-spin h-10 w-10 rounded-full border-4 border-t-transparent border-accent" />
       </div>
     );
   }
@@ -117,13 +148,13 @@ export default function VendorProductsPage() {
     <div className="space-y-6 px-4 py-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-slate-900">Your Products</h1>
-          <p className="mt-2 text-sm text-slate-600">Manage your products, pricing, stock, and publish status.</p>
+          <h1 className="text-3xl font-semibold text-text">Your Products</h1>
+          <p className="mt-2 text-sm text-muted">Manage your products, pricing, stock, and publish status.</p>
         </div>
         <button
           type="button"
           onClick={() => router.push("/vendor/products/new")}
-          className="inline-flex items-center justify-center rounded-full bg-[#1a7a4a] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#166033]"
+          className="inline-flex items-center justify-center rounded-md bg-accent px-5 py-3 text-sm font-semibold text-accent-on transition-colors duration-200 hover:brightness-95"
         >
           Add New Product
         </button>
@@ -135,27 +166,28 @@ export default function VendorProductsPage() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search products by name"
-          className="w-full max-w-md rounded-full border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none focus:border-[#1a7a4a] focus:ring-2 focus:ring-[#1a7a4a]/20"
+          className="w-full max-w-md rounded-full border border-border bg-surface px-4 py-3 text-sm text-text shadow-sm outline-none focus:border-accent focus:ring-2 focus:ring-ring"
         />
       </div>
 
       {error && (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>
+        <div className="rounded-lg border border-danger bg-danger/10 p-4 text-sm text-danger-text">{error}</div>
       )}
 
       {filteredProducts.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center text-slate-600">
-          <p className="text-xl font-semibold text-slate-900">No products yet.</p>
+        <div className="rounded-lg border border-dashed border-border bg-bg p-12 text-center text-muted">
+          <p className="text-xl font-semibold text-text">No products yet.</p>
           <p className="mt-2">Add your first product!</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
           <table className="min-w-full border-collapse text-left text-sm">
-            <thead className="bg-slate-50 text-slate-700">
+            <thead className="bg-bg text-text">
               <tr>
                 <th className="px-4 py-4">Image</th>
                 <th className="px-4 py-4">Name</th>
                 <th className="px-4 py-4">Category</th>
+                <th className="px-4 py-4">Brand</th>
                 <th className="px-4 py-4">Price (₦)</th>
                 <th className="px-4 py-4">Stock</th>
                 <th className="px-4 py-4">Status</th>
@@ -164,37 +196,51 @@ export default function VendorProductsPage() {
             </thead>
             <tbody>
               {filteredProducts.map((product) => (
-                <tr key={product.id} className="border-t border-slate-200 hover:bg-slate-50">
+                <tr key={product.id} className="border-t border-border hover:bg-bg">
                   <td className="px-4 py-4 align-top">
-                    <div className="h-16 w-16 overflow-hidden rounded-2xl bg-slate-100">
+                    <div className="relative h-16 w-16 overflow-hidden rounded-lg bg-surface-raised">
                       {product.images?.[0] ? (
-                        <img src={product.images[0]} alt={product.name} className="h-full w-full object-cover" />
+                        <Image
+                          src={product.images[0]}
+                          alt={product.name}
+                          fill
+                          unoptimized
+                          sizes="64px"
+                          className="object-cover"
+                        />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-xs text-slate-500">No image</div>
+                        <div className="flex h-full items-center justify-center text-xs text-muted">No image</div>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-4 align-top text-slate-900">{product.name}</td>
-                  <td className="px-4 py-4 align-top text-slate-600">{product.category?.name ?? "Uncategorized"}</td>
-                  <td className="px-4 py-4 align-top text-slate-900">₦{product.price.toLocaleString()}</td>
-                  <td className="px-4 py-4 align-top text-slate-900">{product.stock_quantity}</td>
+                  <td className="px-4 py-4 align-top text-text">{product.name}</td>
+                  <td className="px-4 py-4 align-top text-muted">{product.category?.name ?? "Uncategorized"}</td>
+                  <td className="px-4 py-4 align-top text-muted">{product.brand === "Unspecified" ? "Missing" : product.brand}</td>
+                  <td className="px-4 py-4 align-top font-display text-text">₦{product.price.toLocaleString()}</td>
+                  <td className="px-4 py-4 align-top text-text">{product.stock_quantity}</td>
                   <td className="px-4 py-4 align-top">
-                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${product.is_active ? statusStyles.active : statusStyles.draft}`}>
-                      {product.is_active ? "Active" : "Draft"}
-                    </span>
+                    {product.missingFields.length > 0 ? (
+                      <span className="inline-flex rounded-full bg-warning/10 px-3 py-1 text-xs font-semibold text-text">
+                        Complete missing details
+                      </span>
+                    ) : (
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${product.is_active ? statusStyles.active : statusStyles.draft}`}>
+                        {product.is_active ? "Active" : "Draft"}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-4 align-top space-x-2">
                     <button
                       type="button"
                       onClick={() => router.push(`/vendor/products/${product.id}/edit`)}
-                      className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-900 transition hover:bg-slate-50"
+                      className="rounded-full border border-border bg-surface px-3 py-2 text-xs font-semibold text-text transition hover:bg-bg"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(product.id)}
-                      className="rounded-full border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                      className="rounded-full border border-danger bg-danger/10 px-3 py-2 text-xs font-semibold text-danger-text transition hover:bg-danger/10"
                     >
                       Delete
                     </button>

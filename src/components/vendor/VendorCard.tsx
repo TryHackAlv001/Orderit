@@ -30,9 +30,9 @@ export function VendorCard({ vendor, showFollowButton = true }: VendorCardProps)
   const isVerified = vendor.is_verified || false;
 
   return (
-    <div className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg">
+    <div className="group relative overflow-hidden rounded-lg border border-border bg-surface shadow-sm transition hover:shadow-lg">
       {/* Banner Image */}
-      <div className="relative h-32 overflow-hidden bg-slate-100">
+      <div className="relative h-32 overflow-hidden bg-surface-raised">
         {vendor.banner_url ? (
           <Image
             src={vendor.banner_url}
@@ -41,12 +41,12 @@ export function VendorCard({ vendor, showFollowButton = true }: VendorCardProps)
             className="object-cover group-hover:scale-105 transition"
           />
         ) : (
-          <div className="flex h-full items-center justify-center bg-gradient-to-r from-emerald-400 to-emerald-600">
-            <Package className="h-12 w-24 text-white" />
+          <div className="flex h-full items-center justify-center bg-gradient-to-r from-surface-raised to-surface-raised">
+            <Package className="h-12 w-24 text-muted" />
           </div>
         )}
         {isVerified && (
-          <Badge className="absolute right-4 top-4 bg-blue-100 text-blue-800">
+          <Badge className="absolute right-4 top-4 bg-accent/10 text-accent-text">
             Verified
           </Badge>
         )}
@@ -56,7 +56,7 @@ export function VendorCard({ vendor, showFollowButton = true }: VendorCardProps)
       <div className="p-6">
         <div className="flex items-start gap-4">
           {/* Logo */}
-          <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-sm">
+          <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full border-4 border-border bg-surface-raised shadow-sm">
             {vendor.logo_url ? (
               <Image
                 src={vendor.logo_url}
@@ -65,7 +65,7 @@ export function VendorCard({ vendor, showFollowButton = true }: VendorCardProps)
                 className="object-cover"
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-emerald-100 text-emerald-600">
+              <div className="flex h-full items-center justify-center bg-accent/10 text-accent-text">
                 <Package className="h-8 w-8" />
               </div>
             )}
@@ -74,21 +74,21 @@ export function VendorCard({ vendor, showFollowButton = true }: VendorCardProps)
           {/* Details */}
           <div className="flex-1 min-w-0">
             <Link href={`/vendor/${vendor.id}/store`}>
-              <h3 className="text-lg font-semibold text-slate-900 hover:text-emerald-600 transition">
+              <h3 className="text-lg font-semibold text-text hover:text-accent-text transition">
                 {shopName}
               </h3>
             </Link>
 
             {vendorLocation && (
-              <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
+              <div className="flex items-center gap-1 mt-1 text-sm text-muted">
                 <MapPin className="h-4 w-4" />
                 <span>{vendorLocation}</span>
               </div>
             )}
 
-            <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
+            <div className="flex items-center gap-4 mt-2 text-sm text-muted">
               <div className="flex items-center gap-1">
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                <Star className="h-4 w-4 fill-warning text-text" />
                 <span>{vendor.rating.toFixed(1)}</span>
                 <span>({reviewCount})</span>
               </div>
@@ -102,7 +102,7 @@ export function VendorCard({ vendor, showFollowButton = true }: VendorCardProps)
               </div>
             </div>
 
-            <p className="mt-2 text-sm text-slate-600 line-clamp-2">
+            <p className="mt-2 text-sm text-muted line-clamp-2">
               {vendor.shop_description || 'Quality products from a trusted seller.'}
             </p>
           </div>

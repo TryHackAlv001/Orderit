@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import OrderDetailPage from "./page";
 
 interface OrderDetail {
   id: string;
@@ -28,6 +27,7 @@ interface OrderDetail {
     price_at_purchase: number;
     product_name: string;
     product_image?: string;
+    selected_size?: string | null;
   }[];
 }
 
@@ -83,14 +83,14 @@ async function getOrderDetail(orderId: string, userId: string): Promise<OrderDet
   }
 
   // Fetch vendor details separately
-  const { data: vendor, error: vendorError } = await supabase
+  const { data: vendor } = await supabase
     .from("users")
     .select("id,full_name,email")
     .eq("id", order.vendor_id)
     .single();
 
   // Fetch vendor profile separately
-  const { data: vendorProfile, error: profileError } = await supabase
+  const { data: vendorProfile } = await supabase
     .from("vendor_profiles")
     .select("shop_name")
     .eq("user_id", order.vendor_id)
@@ -99,7 +99,7 @@ async function getOrderDetail(orderId: string, userId: string): Promise<OrderDet
   // Fetch order items separately
   const { data: orderItems, error: itemsError } = await supabase
     .from("order_items")
-    .select("id,product_id,quantity,price_at_purchase,product_name,product_image")
+    .select("id,product_id,quantity,price_at_purchase,product_name,product_image,selected_size")
     .eq("order_id", orderId);
 
   if (itemsError) {
@@ -129,5 +129,18 @@ export default async function OrderDetailPageWrapper({
   const userId = await requireBuyerUser();
   const order = await getOrderDetail(params.orderId, userId);
 
-  return <OrderDetailPage order={order} />;
+  if (!order) {
+    return <div className="p-6">Order not found.</div>;
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <h1 className="text-3xl font-semibold text-text">Order Details</h1>
+      <p className="text-muted">Order ID: {order.id}</p>
+      <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+        <p className="text-sm text-muted">Status</p>
+        <p className="mt-2 font-semibold text-text">{order.status}</p>
+      </div>
+    </div>
+  );
 }

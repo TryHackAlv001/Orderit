@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createOrderNotification } from "@/lib/order-notifications";
 
 interface Params {
   params: {
@@ -22,7 +21,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     .single();
 
   if (vpError || !vp) return NextResponse.json({ error: "Vendor profile not found" }, { status: 404 });
-  const vendorProfileId = vp.id;
+  const vendorProfileId = userId;
 
   const body = await request.json();
   const requestedStatus = body.status ?? "out_for_delivery";
@@ -52,12 +51,6 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  if (requestedStatus === "out_for_delivery") {
-    await createOrderNotification(order.buyer_id, "Order shipped", `Your order ${order.id.slice(0, 8)} is out for delivery.`, order.id);
-  } else if (requestedStatus === "preparing") {
-    await createOrderNotification(order.buyer_id, "Order preparing", `Your order ${order.id.slice(0, 8)} is being prepared.`, order.id);
   }
 
   return NextResponse.json({ success: true });

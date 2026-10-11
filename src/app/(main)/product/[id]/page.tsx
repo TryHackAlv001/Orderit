@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MessageVendorButton } from '@/components/messaging/MessageVendorButton';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -17,6 +17,8 @@ import { useAuthStore } from '@/store/authStore';
 import { ProductReviewsSection } from '@/components/product/ProductReviewsSection';
 import Script from 'next/script';
 import { Product as GlobalProduct } from '@/types';
+import { getSizeConfig, getSizeLabel } from '@/constants/sizes';
+import { getSizeGuideKey, SIZE_GUIDES } from '@/constants/size-guides';
 
 interface ProductWithVendor extends GlobalProduct {
   vendor: {
@@ -29,105 +31,152 @@ interface ProductWithVendor extends GlobalProduct {
     is_verified: boolean;
   };
   category: {
+    slug?: string;
     name: string;
   };
   updated_at: string;
 }
 
+interface ProductSizeVariant {
+  size: string | null;
+  stock_quantity: number;
+}
+
 export default function ProductDetailPage() {
   const params = useParams();
   const productId = params.id as string;
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [product, setProduct] = useState<ProductWithVendor | null>(null);
-  const [relatedProducts, setRelatedProducts] = useState<ProductWithVendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState(0);
   const [activeTab, setActiveTab] = useState('description');
+  const [sizeVariants, setSizeVariants] = useState<ProductSizeVariant[]>([]);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [cartError, setCartError] = useState<string | null>(null);
 
   const currency = getCurrencyOption(useCurrencyStore((state) => state.currency));
   const addItem = useCartStore((state) => state.addItem);
   const { user } = useAuthStore();
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchProduct = async () => {
       try {
         setLoading(true);
 
-        // Fetch product with joined vendor and category in one request
         const { data: productData, error: productError } = await supabase
           .from('products')
-          .select('*, vendor:vendor_profiles(*), category:categories(name)')
+          .select('*, category:categories(name,slug)')
           .eq('id', productId)
           .eq('is_active', true)
           .single();
 
+        if (cancelled) return;
+
         if (productError || !productData) {
           setProduct(null);
+          setLoading(false);
           return;
         }
 
         setProduct({
           ...productData,
           created_at: new Date(productData.created_at),
-          // Ensure fallback objects match the interface to prevent runtime errors
-          vendor: productData.vendor
-            ? {
-                ...productData.vendor,
-                userId: productData.vendor.user_id || '',
-              }
-            : {
-                id: '',
-                userId: '',
-                shop_name: 'Unknown',
-                rating: 0,
-                total_sales: 0,
-                created_at: '',
-                is_verified: false,
-              },
+          vendor: {
+            id: productData.vendor_id,
+            userId: productData.vendor_id,
+            shop_name: 'Vendor Store',
+            rating: 0,
+            total_sales: 0,
+            created_at: '',
+            is_verified: false,
+          },
           category: productData.category || { name: 'Uncategorized' },
         });
+        const { data: variants, error: variantsError } = await supabase
+          .from("product_variants")
+          .select("size,stock_quantity")
+          .eq("product_id", productId);
+        if (variantsError) {
+          console.error("Unable to load product size inventory:", variantsError.message);
+          setCartError("Unable to load size availability. Please refresh and try again.");
+        } else {
+          setSizeVariants(variants ?? []);
+        }
+        setSelectedSize(null);
         setMainImage(0);
+        setLoading(false);
 
-        // Fetch related products (same category, different vendor)
-        if (productData.category_id) {
-          const { data: related } = await supabase
-            .from('products')
-            .select('*, vendor:vendor_profiles(id, shop_name, rating, is_verified), category:categories(name)')
-            .eq('category_id', productData.category_id)
-            .eq('is_active', true)
-            .neq('id', productId)
-            .limit(6);
+        try {
+          const { data: vendorData, error: vendorError } = await supabase
+            .from('vendor_profiles')
+            .select('id, user_id, shop_name, rating, total_sales, created_at, is_verified')
+            .eq('user_id', productData.vendor_id)
+            .maybeSingle();
 
-          if (related && related.length > 0) {
-            const enrichedRelated = related.map((p: any) => ({
-              ...p,
-              created_at: new Date(p.created_at),
-              vendor: p.vendor || { shop_name: 'Unknown Vendor' },
-              category: p.category || { name: 'Uncategorized' },
-            }));
-            setRelatedProducts(enrichedRelated);
+          if (cancelled) return;
+
+          if (vendorError) {
+            console.error('Error fetching product vendor:', vendorError);
+          } else if (vendorData) {
+            setProduct((currentProduct) => currentProduct && currentProduct.id === productId ? {
+              ...currentProduct,
+              vendor: {
+                id: vendorData.id,
+                userId: vendorData.user_id,
+                shop_name: vendorData.shop_name || 'Vendor Store',
+                rating: vendorData.rating ?? 0,
+                total_sales: vendorData.total_sales ?? 0,
+                created_at: vendorData.created_at || '',
+                is_verified: vendorData.is_verified ?? false,
+              },
+            } : currentProduct);
+          }
+        } catch (error) {
+          if (!cancelled) {
+            console.error('Error fetching product vendor:', error);
           }
         }
       } catch (error) {
+        if (cancelled) return;
         console.error('Error fetching product:', error);
         setProduct(null);
-      } finally {
         setLoading(false);
       }
     };
 
     fetchProduct();
+
+    return () => {
+      cancelled = true;
+    };
   }, [productId, supabase]);
 
   const handleAddToCart = async () => {
     if (product) {
+      const sizeConfig = getSizeConfig(product.category?.slug ?? product.category?.name);
+      const requiresSize = product.size_type
+        ? product.size_type !== "none"
+        : sizeConfig.type !== "none";
+      if (requiresSize && !selectedSize) {
+        setCartError(`Select a ${sizeConfig.label.toLowerCase()} before adding this product.`);
+        return;
+      }
+      if (selectedSize && sizeStockByValue[selectedSize] < quantity) {
+        setCartError("There is not enough stock for the selected size.");
+        return;
+      }
+      setCartError(null);
       // Update local Zustand state for immediate UI feedback
       addItem({
         id: product.id,
         product,
         quantity,
+        selected_size: selectedSize,
         vendor: {
           id: product.vendor.id,
           shop_name: product.vendor.shop_name,
@@ -137,18 +186,31 @@ export default function ProductDetailPage() {
       // If user is logged in, sync to the database
       if (user) {
         try {
-          const { error } = await supabase
-            .from('cart_items')
-            .upsert({
-              user_id: user.id,
-              product_id: product.id,
-              vendor_id: product.vendor.id, // Ensure we use the joined vendor id
-              quantity: quantity,
-            }, { onConflict: 'user_id,product_id' });
-
-          if (error) throw error;
+          let existingQuery = supabase
+            .from("cart_items")
+            .select("id,quantity")
+            .eq("user_id", user.id)
+            .eq("product_id", product.id);
+          existingQuery = selectedSize
+            ? existingQuery.eq("selected_size", selectedSize)
+            : existingQuery.is("selected_size", null);
+          const { data: existingLine, error: findError } = await existingQuery.maybeSingle();
+          if (findError) throw findError;
+          const result = existingLine
+            ? await supabase.from("cart_items")
+                .update({ quantity: existingLine.quantity + quantity })
+                .eq("id", existingLine.id)
+            : await supabase.from("cart_items").insert({
+                user_id: user.id,
+                product_id: product.id,
+                vendor_id: product.vendor.id,
+                quantity,
+                selected_size: selectedSize,
+              });
+          if (result.error) throw result.error;
         } catch (err) {
           console.error('Failed to sync cart to database:', err);
+          setCartError("Added to this device's cart, but could not sync your account cart.");
         }
       }
     }
@@ -157,7 +219,7 @@ export default function ProductDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-300 border-t-emerald-600" />
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-border border-t-accent" />
       </div>
     );
   }
@@ -165,8 +227,8 @@ export default function ProductDetailPage() {
   if (!product) {
     return (
       <div className="py-20 text-center">
-        <h1 className="text-3xl font-bold text-slate-900">Product Not Found</h1>
-        <p className="mt-2 text-slate-600">This product may have been removed or is no longer available.</p>
+        <h1 className="text-3xl font-bold text-text">Product Not Found</h1>
+        <p className="mt-2 text-muted">This product may have been removed or is no longer available.</p>
         <Link href="/marketplace">
           <Button className="mt-4">Back to Marketplace</Button>
         </Link>
@@ -175,7 +237,24 @@ export default function ProductDetailPage() {
   }
 
   const discount = product.compare_price ? Math.round(((product.compare_price - product.price) / product.compare_price) * 100) : null;
-  const isOwner = !!user && user.id === product.vendor_id;
+  const isOwner = user?.role === 'vendor' && user.id === product.vendor_id;
+  const sizeConfig = getSizeConfig(product.category?.slug ?? product.category?.name);
+  const requiresSize = product.size_type
+    ? product.size_type !== "none"
+    : sizeConfig.type !== "none";
+  const availableSizes = Array.from(new Set([
+    ...(product.available_sizes ?? []),
+    ...sizeVariants.map((variant) => variant.size).filter((size): size is string => Boolean(size)),
+  ]));
+  const sizeStockByValue = sizeVariants.reduce<Record<string, number>>((stock, variant) => {
+    if (variant.size) stock[variant.size] = (stock[variant.size] ?? 0) + variant.stock_quantity;
+    return stock;
+  }, {});
+  const selectedSizeStock = selectedSize ? sizeStockByValue[selectedSize] ?? 0 : product.stock_quantity;
+  const sizeGuideKey = getSizeGuideKey(product.category?.slug ?? product.category?.name);
+  const sizeGuide = sizeGuideKey ? SIZE_GUIDES[sizeGuideKey] : null;
+  const canAddToCart = product.stock_quantity > 0 &&
+    (!requiresSize || (selectedSize !== null && selectedSizeStock >= quantity));
 
   return (
     <div className="space-y-8">
@@ -184,7 +263,7 @@ export default function ProductDetailPage() {
         {/* Image Gallery */}
         <div className="space-y-4">
           {/* Main Image */}
-          <div className="relative aspect-square overflow-hidden rounded-3xl bg-slate-100">
+          <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-surface-raised">
             {product.images[mainImage] ? (
               <Image
                 src={product.images[mainImage]}
@@ -194,14 +273,14 @@ export default function ProductDetailPage() {
                 priority
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-slate-400">No Image</div>
+              <div className="flex h-full items-center justify-center text-muted">No Image</div>
             )}
             {discount && (
-              <Badge className="absolute left-4 top-4 bg-red-500">-{discount}%</Badge>
+              <Badge variant="danger" className="absolute left-4 top-4">-{discount}%</Badge>
             )}
             {product.stock_quantity === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                <span className="text-2xl font-bold text-white">Out of Stock</span>
+              <div className="absolute inset-0 flex items-center justify-center bg-surface/90">
+                <span className="text-2xl font-bold text-text">Out of Stock</span>
               </div>
             )}
           </div>
@@ -213,8 +292,8 @@ export default function ProductDetailPage() {
                 <button
                   key={idx}
                   onClick={() => setMainImage(idx)}
-                  className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border-2 transition ${
-                    mainImage === idx ? 'border-emerald-600' : 'border-slate-200'
+                  className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border transition-colors duration-200 ${
+                    mainImage === idx ? 'border-accent' : 'border-border'
                   } `}
                 >
                   <Image
@@ -234,18 +313,18 @@ export default function ProductDetailPage() {
         <div className="space-y-6">
           {/* Category Badge */}
           {product.category?.name && (
-            <Badge className="w-fit border border-slate-200 bg-transparent text-slate-600">{product.category.name}</Badge>
+            <Badge className="w-fit border border-border bg-transparent text-muted">{product.category.name}</Badge>
           )}
 
           {/* Title and Vendor */}
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">{product.name}</h1>
+            <h1 className="text-3xl font-bold text-text">{product.name}</h1>
             <Link
               href={`/vendor/${product.vendor.id}`}
-              className="mt-2 text-emerald-600 hover:underline"
+              className="mt-2 text-accent-text transition-colors duration-200 hover:text-accent-text hover:underline"
             >
               {product.vendor.shop_name}
-              {product.vendor.is_verified && <Badge className="ml-2 bg-blue-100 text-blue-800">Verified</Badge>}
+              {product.vendor.is_verified && <Badge variant="success" className="ml-2">Verified</Badge>}
             </Link>
           </div>
 
@@ -256,22 +335,22 @@ export default function ProductDetailPage() {
                 <Star
                   key={i}
                   className={`h-5 w-5 ${
-                    i < Math.floor(product.rating) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                    i < Math.floor(product.rating) ? 'fill-accent text-accent-text' : 'text-muted'
                   }`}
                 />
               ))}
             </div>
-            <span className="text-sm text-slate-600">({product.review_count} reviews)</span>
+            <span className="text-sm text-muted">({product.review_count} reviews)</span>
           </div>
 
           {/* Price */}
           <div className="space-y-2">
             <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-bold text-slate-900">
+              <span className="font-display text-4xl font-bold text-accent-text">
                 {formatCurrency(product.price, currency.code, currency.locale)}
               </span>
               {product.compare_price && (
-                <span className="text-lg text-slate-400 line-through">
+                <span className="text-lg text-muted line-through">
                   {formatCurrency(product.compare_price, currency.code, currency.locale)}
                 </span>
               )}
@@ -279,7 +358,7 @@ export default function ProductDetailPage() {
             {product.tags.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2 text-sm">
                 {product.tags.map((tag) => (
-                  <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                  <span key={tag} className="rounded-md bg-surface-raised px-3 py-1 text-muted">
                     {tag}
                   </span>
                 ))}
@@ -291,41 +370,93 @@ export default function ProductDetailPage() {
           <div className="flex items-center gap-2">
             {product.stock_quantity > 0 ? (
               <>
-                <div className="h-2 w-2 rounded-full bg-green-500" />
-                <span className="text-sm font-medium text-green-600">
+                <div className="h-2 w-2 rounded-full bg-success" />
+                <span className="text-sm font-medium text-text">
                   {product.stock_quantity} in stock
                 </span>
               </>
             ) : (
               <>
-                <div className="h-2 w-2 rounded-full bg-red-500" />
-                <span className="text-sm font-medium text-red-600">Out of Stock</span>
+                <div className="h-2 w-2 rounded-full bg-danger" />
+                <span className="text-sm font-medium text-danger-text">Out of Stock</span>
               </>
             )}
           </div>
+
+          {requiresSize && (
+            <section className="space-y-3" aria-labelledby="product-size-label">
+              <div className="flex items-center justify-between gap-3">
+                <h2 id="product-size-label" className="text-sm font-semibold text-text">{sizeConfig.label}</h2>
+                {sizeGuide && (
+                  <button type="button" onClick={() => setSizeGuideOpen(true)}
+                    className="text-sm font-medium text-accent-text underline underline-offset-2 transition-colors duration-200 hover:text-accent-text">
+                    Size guide
+                  </button>
+                )}
+              </div>
+              {availableSizes.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {availableSizes.map((size) => {
+                    const inStock = (sizeStockByValue[size] ?? 0) > 0;
+                    return (
+                      <button key={size} type="button" disabled={!inStock}
+                        aria-pressed={selectedSize === size}
+                        onClick={() => {
+                          setSelectedSize(size);
+                          setQuantity((current) => Math.min(current, sizeStockByValue[size] ?? 1));
+                          setCartError(null);
+                        }}
+                        className={`min-h-11 rounded-md border px-4 text-sm font-semibold transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
+                          selectedSize === size
+                            ? "border-accent bg-accent/10 text-text"
+                            : "border-border bg-surface text-text hover:border-accent/50"
+                        }`}
+                      >
+                        {size}
+                        {!inStock && <span className="ml-1 text-xs font-normal">Sold out</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-text">
+                  Size options are not available for this product yet. Contact the seller for help.
+                </p>
+              )}
+              {selectedSize && (
+                <p className="text-sm text-muted">
+                  {getSizeLabel(product.category?.slug ?? product.category?.name, selectedSize)} · {selectedSizeStock} in stock
+                </p>
+              )}
+              {cartError && <p role="alert" className="text-sm text-danger-text">{cartError}</p>}
+            </section>
+          )}
 
           {!isOwner ? (
             <>
               {product.stock_quantity > 0 && (
                 <div className="space-y-4">
+                  {!requiresSize && cartError && <p role="alert" className="text-sm text-danger-text">{cartError}</p>}
                   <div className="flex items-center gap-4">
                     <label className="text-sm font-medium">Quantity:</label>
-                    <div className="flex items-center rounded-lg border border-slate-300">
+                    <div className="flex items-center rounded-md border border-border bg-surface">
                       <button
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="px-3 py-2 hover:bg-slate-100"
+                        className="px-3 py-2 transition-colors duration-200 hover:bg-surface-raised"
                       >
                         −
                       </button>
                       <input
                         type="number"
+                        min={1}
+                        max={selectedSizeStock}
                         value={quantity}
-                        onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-16 border-l border-r border-slate-300 px-2 py-2 text-center focus:outline-none"
+                        onChange={(e) => setQuantity(Math.min(selectedSizeStock, Math.max(1, parseInt(e.target.value) || 1)))}
+                        className="w-16 border-l border-r border-border bg-transparent px-2 py-2 text-center text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                       <button
-                        onClick={() => setQuantity(Math.min(product.stock_quantity, quantity + 1))}
-                        className="px-3 py-2 hover:bg-slate-100"
+                        onClick={() => setQuantity(Math.min(selectedSizeStock, quantity + 1))}
+                        className="px-3 py-2 transition-colors duration-200 hover:bg-surface-raised"
                       >
                         +
                       </button>
@@ -334,49 +465,40 @@ export default function ProductDetailPage() {
 
                   {/* Action Buttons */}
                   <div className="space-y-2">
-                    <Button className="w-full" onClick={handleAddToCart}>
+                    <Button className="w-full" disabled={!canAddToCart} onClick={handleAddToCart}>
                       <ShoppingCart className="mr-2 h-5 w-5" />
-                      Order Now
-                    </Button>
-                    <Button className="w-full border border-slate-200 bg-transparent text-slate-900 hover:bg-slate-50">
-                      Buy Now
+                      Add to Cart
                     </Button>
                   </div>
                 </div>
               )}
 
               {/* Secondary Buttons */}
-              <div className="flex gap-2 border-t border-slate-200 pt-4">
+              <div className="flex gap-2 border-t border-border pt-4">
                 <MessageVendorButton
                   vendorUserId={product.vendor.userId}
                   vendorName={product.vendor.shop_name}
                   className="flex-1"
                 />
-                <Button className="flex-1 border border-slate-200 bg-transparent text-slate-900 hover:bg-slate-50">
+                <Button variant="outline" className="flex-1">
                   <Heart className="mr-2 h-4 w-4" />
                   Wishlist
                 </Button>
-                <Button className="flex-1 border border-slate-200 bg-transparent text-slate-900 hover:bg-slate-50">
+                <Button variant="outline" className="flex-1">
                   <Share2 className="mr-2 h-4 w-4" />
                   Share
                 </Button>
               </div>
             </>
           ) : (
-            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6">
-              <p className="text-sm font-medium text-emerald-800">This is your product listing.</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-border bg-surface-raised p-6">
+              <p className="text-sm font-medium text-text">This is your product listing.</p>
+              <div className="mt-4">
                 <Link
                   href={`/vendor/products/${product.id}/edit`}
-                  className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  className="inline-flex w-full items-center justify-center rounded-md bg-accent px-4 py-3 text-sm font-semibold text-accent-on transition-colors duration-200 hover:brightness-95"
                 >
                   Edit Product
-                </Link>
-                <Link
-                  href="/vendor/products"
-                  className="inline-flex w-full items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
-                >
-                  Manage Listings
                 </Link>
               </div>
             </div>
@@ -384,17 +506,45 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
+      {sizeGuideOpen && sizeGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 p-4" role="presentation"
+          onClick={(event) => { if (event.target === event.currentTarget) setSizeGuideOpen(false); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="size-guide-title"
+            className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-sm sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="size-guide-title" className="text-xl font-semibold text-text">{sizeGuide.title}</h2>
+                <p className="mt-2 text-sm text-muted">{sizeGuide.note}</p>
+              </div>
+              <button type="button" aria-label="Close size guide" onClick={() => setSizeGuideOpen(false)}
+                className="min-h-10 min-w-10 rounded-md bg-surface-raised text-lg text-text">×</button>
+            </div>
+            <div className="mt-5 overflow-x-auto">
+              <table className="min-w-full text-left text-sm">
+                <tbody>
+                  {sizeGuide.rows.map((row, index) => (
+                    <tr key={row.join("-")} className={index === 0 ? "bg-surface-raised font-semibold" : "border-t border-border"}>
+                      {row.map((cell) => <td key={cell} className="px-3 py-2.5 text-text">{cell}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Tabs Section */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-border">
         <div className="flex gap-8 overflow-x-auto">
           {['description', 'reviews', 'vendor'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`border-b-2 px-4 py-4 font-medium capitalize transition ${
+              className={`border-b-2 px-4 py-4 font-medium capitalize transition-colors duration-200 ${
                 activeTab === tab
-                  ? 'border-emerald-600 text-emerald-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
+                  ? 'border-accent text-accent-text'
+                  : 'border-transparent text-muted hover:text-text'
               }`}
             >
               {tab === 'description' ? 'Description' : tab === 'reviews' ? 'Reviews' : 'Vendor Info'}
@@ -408,12 +558,12 @@ export default function ProductDetailPage() {
         {/* Description Tab */}
         {activeTab === 'description' && (
           <div className="max-w-3xl space-y-4">
-            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-slate-700">
+            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-text">
               {product.description || 'No description available.'}
             </div>
             {product.sku && (
-              <div className="border-t border-slate-200 pt-4">
-                <p className="text-sm text-slate-600">
+              <div className="border-t border-border pt-4">
+                <p className="text-sm text-muted">
                   <strong>SKU:</strong> {product.sku}
                 </p>
               </div>
@@ -434,114 +584,106 @@ export default function ProductDetailPage() {
         {/* Vendor Info Tab */}
         {activeTab === 'vendor' && (
           <div className="max-w-2xl space-y-6">
-            <div className="rounded-lg border border-slate-200 p-6">
+            <div className="rounded-lg border border-border bg-surface p-6">
               <div className="flex items-start justify-between">
                 <div className="space-y-4 flex-1">
                   <div>
-                    <h3 className="text-2xl font-bold text-slate-900">{product.vendor.shop_name}</h3>
+                    <h3 className="text-2xl font-bold text-text">{product.vendor.shop_name}</h3>
                     {product.vendor.is_verified && (
-                      <Badge className="mt-2 bg-blue-100 text-blue-800">Verified Seller</Badge>
+                      <Badge variant="success" className="mt-2">Verified Seller</Badge>
                     )}
                   </div>
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
-                      <p className="text-sm text-slate-600">Seller Rating</p>
+                      <p className="text-sm text-muted">Seller Rating</p>
                       <div className="mt-1 flex items-center gap-1">
-                        <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                        <Star className="h-5 w-5 fill-accent text-accent-text" />
                         <span className="font-semibold">{product.vendor.rating.toFixed(1)}</span>
                       </div>
                     </div>
                     <div>
-                      <p className="text-sm text-slate-600">Total Sales</p>
+                      <p className="text-sm text-muted">Total Sales</p>
                       <p className="mt-1 font-semibold">{product.vendor.total_sales}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-slate-600">Member Since</p>
+                      <p className="text-sm text-muted">Member Since</p>
                       <p className="mt-1 font-semibold">
-                        {new Date(product.vendor.created_at).getFullYear()}
+                        {Number.isNaN(Date.parse(product.vendor.created_at))
+                          ? '—'
+                          : new Date(product.vendor.created_at).getFullYear()}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="mt-6 border-t border-slate-200 pt-6">
-                <Link href={`/vendor/${product.vendor.id}`}>
-                  <Button className="w-full border border-slate-200 bg-transparent text-slate-900 hover:bg-slate-50">
-                    {isOwner ? (
-                      <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                        <p className="text-sm font-medium text-emerald-800">This is your product listing.</p>
-                        <div className="flex gap-2">
-                          <Link href={`/vendor/products/${product.id}/edit`} className="flex-1">
-                            <Button className="w-full">Edit Product</Button>
-                          </Link>
-                          <Button variant="outline" className="flex-1">
-                            <Share2 className="mr-2 h-4 w-4" />
-                            Share
+              <div className="mt-6 border-t border-border pt-6">
+                {isOwner ? (
+                  <div className="space-y-4 rounded-lg border border-border bg-surface-raised p-4">
+                    <p className="text-sm font-medium text-text">This is your product listing.</p>
+                    <Link
+                      href={`/vendor/products/${product.id}/edit`}
+                      className="inline-flex w-full items-center justify-center rounded-md bg-accent px-5 py-2.5 text-sm text-accent-on transition-colors duration-200 hover:brightness-95"
+                    >
+                      Edit Product
+                    </Link>
+                  </div>
+                ) : (
+                  <>
+                    {/* Quantity Selector */}
+                    {product.stock_quantity > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-4">
+                          <label className="text-sm font-medium">Quantity:</label>
+                          <div className="flex items-center rounded-md border border-border bg-surface">
+                            <button
+                              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                              className="px-3 py-2 transition-colors duration-200 hover:bg-surface-raised"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              value={quantity}
+                              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                              className="w-16 border-l border-r border-border bg-transparent px-2 py-2 text-center text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            />
+                            <button
+                              onClick={() => setQuantity(Math.min(product.stock_quantity, quantity + 1))}
+                              className="px-3 py-2 transition-colors duration-200 hover:bg-surface-raised"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="space-y-2">
+                          <Button className="w-full" onClick={handleAddToCart}>
+                            <ShoppingCart className="mr-2 h-5 w-5" />
+                            Add to Cart
                           </Button>
                         </div>
                       </div>
-                    ) : (
-                      <>
-                        {/* Quantity Selector */}
-                        {product.stock_quantity > 0 && (
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-4">
-                              <label className="text-sm font-medium">Quantity:</label>
-                              <div className="flex items-center rounded-lg border border-slate-300">
-                                <button
-                                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                  className="px-3 py-2 hover:bg-slate-100"
-                                >
-                                  −
-                                </button>
-                                <input
-                                  type="number"
-                                  value={quantity}
-                                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                                  className="w-16 border-l border-r border-slate-300 px-2 py-2 text-center focus:outline-none"
-                                />
-                                <button
-                                  onClick={() => setQuantity(Math.min(product.stock_quantity, quantity + 1))}
-                                  className="px-3 py-2 hover:bg-slate-100"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="space-y-2">
-                              <Button className="w-full" onClick={handleAddToCart}>
-                                <ShoppingCart className="mr-2 h-5 w-5" />
-                                Order Now
-                              </Button>
-                              <Button variant="outline" className="w-full">
-                                Buy Now
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Secondary Buttons */}
-                        <div className="flex gap-2 border-t border-slate-200 pt-4">
-                          <MessageVendorButton
-                            vendorUserId={product.vendor.userId}
-                            vendorName={product.vendor.shop_name}
-                            className="flex-1"
-                          />
-                          <Button variant="outline" className="flex-1">
-                            <Heart className="mr-2 h-4 w-4" />
-                            Wishlist
-                          </Button>
-                          <Button variant="outline" className="flex-1">
-                            <Share2 className="mr-2 h-4 w-4" />
-                            Share
-                          </Button>
-                        </div>
-                      </>
                     )}
-                  </Button>
-                </Link>
+
+                    {/* Secondary Buttons */}
+                    <div className="flex gap-2 border-t border-border pt-4">
+                      <MessageVendorButton
+                        vendorUserId={product.vendor.userId}
+                        vendorName={product.vendor.shop_name}
+                        className="flex-1"
+                      />
+                      <Button variant="outline" className="flex-1">
+                        <Heart className="mr-2 h-4 w-4" />
+                        Wishlist
+                      </Button>
+                      <Button variant="outline" className="flex-1">
+                        <Share2 className="mr-2 h-4 w-4" />
+                        Share
+                      </Button>
+                    </div>
+                  </>
+                )}
 
                 {/* Structured data JSON-LD */}
                 <Script id="product-json-ld" type="application/ld+json">

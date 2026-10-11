@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { statusLabel, statusColor } from "@/lib/order-status";
 
 interface Order {
@@ -17,27 +16,28 @@ interface Order {
   order_items: {
     product_name: string;
     product_image?: string;
+    selected_size?: string | null;
   }[];
 }
 
 export function BuyerOrdersPage({ orders }: { orders: Order[] }) {
   return (
     <div className="space-y-6 px-4 py-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold text-slate-900">Your Orders</h1>
-            <p className="mt-2 text-sm text-slate-600">Review all your orders and track their progress.</p>
+            <h1 className="text-3xl font-semibold text-text">Your Orders</h1>
+            <p className="mt-2 text-sm text-muted">Review all your orders and track their progress.</p>
           </div>
-          <Link href="/marketplace" className="text-sm font-semibold text-blue-600 hover:text-blue-700">
+          <Link href="/marketplace" className="text-sm font-semibold text-accent-text hover:text-accent-text">
             Continue Shopping
           </Link>
         </div>
       </div>
 
       {orders.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center text-slate-600">
-          <p className="text-xl font-semibold text-slate-900">No orders yet</p>
+        <div className="rounded-lg border border-dashed border-border bg-bg p-12 text-center text-muted">
+          <p className="text-xl font-semibold text-text">No orders yet</p>
           <p className="mt-2">Your completed purchases will appear here.</p>
         </div>
       ) : (
@@ -53,28 +53,28 @@ export function BuyerOrdersPage({ orders }: { orders: Order[] }) {
 
 function OrderRow({ order }: { order: Order }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
       {/* Main row */}
       <div className="px-4 py-4 sm:px-6">
         <div className="grid gap-4 sm:grid-cols-6 sm:items-center">
           <div>
-            <p className="text-sm font-medium text-slate-500">Order</p>
-            <p className="text-slate-900">#{order.id.slice(0, 8)}</p>
+            <p className="text-sm font-medium text-muted">Order</p>
+            <p className="text-text">#{order.id.slice(0, 8)}</p>
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Vendor</p>
-            <p className="text-slate-900">{order.vendor?.shop_name || "Unknown Vendor"}</p>
+            <p className="text-sm font-medium text-muted">Vendor</p>
+            <p className="text-text">{order.vendor?.shop_name || "Unknown Vendor"}</p>
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Items</p>
-            <p className="text-slate-900">{order.order_items?.length || 0}</p>
+            <p className="text-sm font-medium text-muted">Items</p>
+            <p className="text-text">{order.order_items?.length || 0}</p>
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Total</p>
-            <p className="text-slate-900">₦{Number(order.total).toLocaleString()}</p>
+            <p className="text-sm font-medium text-muted">Total</p>
+            <p className="font-display text-text">₦{Number(order.total).toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Status</p>
+            <p className="text-sm font-medium text-muted">Status</p>
             <span
               className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusColor(order.status)}`}
             >
@@ -82,7 +82,7 @@ function OrderRow({ order }: { order: Order }) {
             </span>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted">
               {new Date(order.created_at).toLocaleDateString("en-NG", {
                 day: "numeric",
                 month: "short",
@@ -91,6 +91,15 @@ function OrderRow({ order }: { order: Order }) {
             </p>
           </div>
         </div>
+        {order.order_items?.length > 0 && (
+          <div className="space-y-1 border-t border-border px-4 py-3 text-sm sm:px-6">
+            {order.order_items.map((item, index) => (
+              <p key={`${item.product_name}-${index}`} className="text-text">
+                {item.product_name}{item.selected_size ? ` · Size: ${item.selected_size}` : ""}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

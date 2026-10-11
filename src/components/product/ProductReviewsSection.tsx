@@ -98,7 +98,7 @@ export function ProductReviewsSection({
           {!showReviewForm && !alreadyReviewed && (
             <button
               onClick={() => setShowReviewForm(true)}
-              className="w-full rounded-full bg-blue-600 py-3 font-medium text-white hover:bg-blue-700"
+              className="w-full rounded-full bg-accent py-3 font-medium text-accent-on hover:bg-accent-hover"
             >
               Write a Review
             </button>
@@ -115,16 +115,16 @@ export function ProductReviewsSection({
           )}
 
           {alreadyReviewed && !showReviewForm && (
-            <div className="rounded-3xl border border-blue-200 bg-blue-50 p-4">
-              <p className="text-sm text-blue-700">✓ You've already reviewed this product</p>
+            <div className="rounded-lg border border-accent bg-accent/10 p-4">
+              <p className="text-sm text-accent-text">✓ You've already reviewed this product</p>
             </div>
           )}
         </>
       )}
 
       {!user && (
-        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-center">
-          <p className="text-sm text-slate-600">Sign in to write a review</p>
+        <div className="rounded-lg border border-border bg-bg p-4 text-center">
+          <p className="text-sm text-muted">Sign in to write a review</p>
         </div>
       )}
 

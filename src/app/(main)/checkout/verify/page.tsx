@@ -59,18 +59,18 @@ export default function CheckoutVerifyPage() {
       <div className="text-center space-y-4 max-w-md">
         {status === 'loading' && (
           <>
-            <Loader2 className="h-16 w-16 animate-spin text-[#1a7a4a] mx-auto" />
-            <h1 className="text-2xl font-semibold text-slate-900">Verifying payment...</h1>
-            <p className="text-slate-600">Please wait while we confirm your payment.</p>
+            <Loader2 className="h-16 w-16 animate-spin text-accent-text mx-auto" />
+            <h1 className="text-2xl font-semibold text-text">Verifying payment...</h1>
+            <p className="text-muted">Please wait while we confirm your payment.</p>
           </>
         )}
 
         {status === 'success' && (
           <>
-            <CheckCircle className="h-16 w-16 text-[#1a7a4a] mx-auto" />
-            <h1 className="text-2xl font-semibold text-slate-900">Payment Successful! 🎉</h1>
-            <p className="text-slate-600">Your order has been confirmed. Redirecting to your orders...</p>
-            <Link href="/buyer/orders" className="inline-block mt-4 rounded-full bg-[#1a7a4a] px-6 py-2 text-white text-sm font-medium hover:bg-emerald-700">
+            <CheckCircle className="h-16 w-16 text-text mx-auto" />
+            <h1 className="text-2xl font-semibold text-text">Payment Successful! 🎉</h1>
+            <p className="text-muted">Your order has been confirmed. Redirecting to your orders...</p>
+            <Link href="/buyer/orders" className="inline-block mt-4 rounded-md bg-accent px-6 py-2 text-accent-on text-sm font-medium transition-colors duration-200 hover:brightness-95">
               View My Orders
             </Link>
           </>
@@ -78,14 +78,14 @@ export default function CheckoutVerifyPage() {
 
         {status === 'failed' && (
           <>
-            <XCircle className="h-16 w-16 text-red-500 mx-auto" />
-            <h1 className="text-2xl font-semibold text-slate-900">Payment Failed</h1>
-            <p className="text-slate-600">Something went wrong with your payment. Please try again.</p>
+            <XCircle className="h-16 w-16 text-danger-text mx-auto" />
+            <h1 className="text-2xl font-semibold text-text">Payment Failed</h1>
+            <p className="text-muted">Something went wrong with your payment. Please try again.</p>
             <div className="flex gap-3 justify-center mt-4">
-              <Link href="/checkout" className="rounded-full border border-slate-300 px-6 py-2 text-sm font-medium hover:bg-slate-50">
+              <Link href="/checkout" className="rounded-md border border-border px-6 py-2 text-sm font-medium text-text transition-colors duration-200 hover:bg-surface-raised">
                 Try Again
               </Link>
-              <Link href="/marketplace" className="rounded-full bg-[#1a7a4a] px-6 py-2 text-white text-sm font-medium hover:bg-emerald-700">
+              <Link href="/marketplace" className="rounded-md bg-accent px-6 py-2 text-accent-on text-sm font-medium transition-colors duration-200 hover:brightness-95">
                 Back to Marketplace
               </Link>
             </div>

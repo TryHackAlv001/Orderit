@@ -8,10 +8,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  primary: "bg-slate-900 text-white hover:bg-slate-700 border border-transparent",
-  outline: "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50",
-  ghost: "bg-transparent text-slate-900 hover:bg-slate-100 border border-transparent",
-  default: "bg-slate-900 text-white hover:bg-slate-700 border border-transparent",
+  primary: "border border-transparent bg-accent text-accent-on hover:bg-accent-hover",
+  outline: "border border-accent-text bg-transparent text-accent-text hover:bg-accent/10",
+  ghost: "border border-transparent bg-transparent text-text hover:bg-surface-raised",
+  default: "border border-transparent bg-accent text-accent-on hover:bg-accent-hover",
 };
 
 const sizeClasses: Record<NonNullable<ButtonProps["size"]>, string> = {
@@ -29,7 +29,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`inline-flex items-center justify-center rounded-full transition focus:outline-none ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center justify-center rounded-md transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       {...props}
     >
       {children}

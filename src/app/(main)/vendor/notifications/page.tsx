@@ -49,21 +49,21 @@ export default function VendorNotificationsPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[400px]">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1a7a4a]" />
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
     </div>
   );
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
-          <Bell className="h-6 w-6 text-[#1a7a4a]" />
+        <h1 className="text-2xl font-semibold text-text flex items-center gap-2">
+          <Bell className="h-6 w-6 text-accent-text" />
           Notifications
         </h1>
         {notifications.some(n => !n.is_read) && (
           <button
             onClick={markAllRead}
-            className="flex items-center gap-1 text-sm text-[#1a7a4a] hover:underline"
+            className="flex items-center gap-1 text-sm text-accent-text hover:underline"
           >
             <Check className="h-4 w-4" />
             Mark all as read
@@ -72,7 +72,7 @@ export default function VendorNotificationsPage() {
       </div>
 
       {notifications.length === 0 ? (
-        <div className="text-center py-16 text-slate-500">
+        <div className="text-center py-16 text-muted">
           <Bell className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p>No notifications yet</p>
         </div>
@@ -82,10 +82,10 @@ export default function VendorNotificationsPage() {
             <div
               key={n.id}
               onClick={() => n.link && router.push(n.link)}
-              className={`p-4 rounded-2xl border cursor-pointer transition hover:shadow-sm ${
+              className={`p-4 rounded-lg border cursor-pointer transition hover:shadow-sm ${
                 n.is_read
-                  ? 'bg-white border-slate-200 text-slate-600'
-                  : 'bg-emerald-50 border-emerald-200 text-slate-800'
+                  ? 'bg-surface border-border text-muted'
+                  : 'bg-accent/10 border-accent text-text'
               }`}
             >
               <div className="flex items-start justify-between gap-4">
@@ -94,7 +94,7 @@ export default function VendorNotificationsPage() {
                   {n.body && <p className="text-sm mt-1 opacity-80">{n.body}</p>}
                 </div>
                 {!n.is_read && (
-                  <span className="w-2 h-2 rounded-full bg-[#1a7a4a] mt-1 flex-shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-accent mt-1 flex-shrink-0" />
                 )}
               </div>
               <p className="text-xs mt-2 opacity-50">

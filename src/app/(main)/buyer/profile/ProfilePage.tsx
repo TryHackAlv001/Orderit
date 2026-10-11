@@ -45,7 +45,9 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       if (!authUser) return;
-      
+
+      const supabase = createClient();
+
       try {
         setProfileLoading(true);
         const { data, error } = await supabase
@@ -55,7 +57,7 @@ export default function ProfilePage() {
           .single();
 
         if (error) throw error;
-        
+
         if (data) {
           setProfile(data as UserProfile);
           setFullName(data.full_name || '');
@@ -177,7 +179,7 @@ export default function ProfilePage() {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-500 mb-4">Please log in to view your profile</p>
+          <p className="text-muted mb-4">Please log in to view your profile</p>
           <Button onClick={() => router.push('/login')}>Login</Button>
         </div>
       </div>
@@ -185,26 +187,26 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8">
-      <Toaster position="top-right" />
+    <div className="min-h-screen bg-bg py-8">
+      <Toaster position="top-right" toastOptions={{ style: { background: "var(--surface-raised)", color: "var(--foreground)", border: "1px solid var(--border)", boxShadow: "var(--shadow-soft)" }, success: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } }, error: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } } }} />
       <div className="mx-auto max-w-2xl px-4">
-        <h1 className="mb-8 text-3xl font-bold text-slate-900">My Profile</h1>
+        <h1 className="mb-8 text-3xl font-bold text-text">My Profile</h1>
 
         {/* Profile Information */}
         <form onSubmit={handleSaveProfile} className="space-y-8">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-900">Personal Information</h2>
+              <h2 className="text-xl font-semibold text-text">Personal Information</h2>
             </div>
 
             {profileError && (
-              <div className="mb-4 rounded-2xl bg-red-50 p-4 text-sm text-red-700 border border-red-200">
+              <div className="mb-4 rounded-lg bg-danger/10 p-4 text-sm text-danger-text border border-danger">
                 {profileError}
               </div>
             )}
 
             {profileSuccess && (
-              <div className="mb-4 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700 border border-emerald-200">
+              <div className="mb-4 rounded-lg bg-accent/10 p-4 text-sm text-accent-text border border-accent">
                 Profile updated successfully!
               </div>
             )}
@@ -212,7 +214,7 @@ export default function ProfilePage() {
             <div className="space-y-6">
               {/* Avatar Upload */}
               <div>
-                <label className="block text-sm font-medium text-slate-900 mb-2">
+                <label className="block text-sm font-medium text-text mb-2">
                   Profile Picture
                 </label>
                 <ImageUpload
@@ -225,7 +227,7 @@ export default function ProfilePage() {
 
               {/* Full Name */}
               <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-slate-900 mb-2">
+                <label htmlFor="fullName" className="block text-sm font-medium text-text mb-2">
                   Full Name
                 </label>
                 <Input
@@ -240,7 +242,7 @@ export default function ProfilePage() {
 
               {/* Phone */}
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-slate-900 mb-2">
+                <label htmlFor="phone" className="block text-sm font-medium text-text mb-2">
                   Phone Number
                 </label>
                 <Input
@@ -255,7 +257,7 @@ export default function ProfilePage() {
 
               {/* Email (read-only) */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-slate-900 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-text mb-2">
                   Email Address
                 </label>
                 <Input
@@ -263,9 +265,9 @@ export default function ProfilePage() {
                   type="email"
                   value={profile.email}
                   disabled
-                  className="w-full bg-slate-50"
+                  className="w-full bg-bg"
                 />
-                <p className="mt-1 text-xs text-slate-500">Email cannot be changed here</p>
+                <p className="mt-1 text-xs text-muted">Email cannot be changed here</p>
               </div>
 
               {/* Save Button */}
@@ -273,7 +275,7 @@ export default function ProfilePage() {
                 <Button
                   type="submit"
                   disabled={profileSaving}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700"
+                  className="flex items-center gap-2 bg-accent hover:bg-accent-hover"
                 >
                   {profileSaving ? (
                     <>
@@ -294,17 +296,17 @@ export default function ProfilePage() {
 
         {/* Change Password */}
         <form onSubmit={handleChangePassword} className="space-y-8">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-6 text-xl font-semibold text-slate-900">Change Password</h2>
+          <div id="account-security" className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+            <h2 className="mb-6 text-xl font-semibold text-text">Change Password</h2>
 
             {passwordError && (
-              <div className="mb-4 rounded-2xl bg-red-50 p-4 text-sm text-red-700 border border-red-200">
+              <div className="mb-4 rounded-lg bg-danger/10 p-4 text-sm text-danger-text border border-danger">
                 {passwordError}
               </div>
             )}
 
             {passwordSuccess && (
-              <div className="mb-4 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700 border border-emerald-200">
+              <div className="mb-4 rounded-lg bg-accent/10 p-4 text-sm text-accent-text border border-accent">
                 Password changed successfully!
               </div>
             )}
@@ -312,7 +314,7 @@ export default function ProfilePage() {
             <div className="space-y-6">
               {/* Current Password */}
               <div>
-                <label htmlFor="currentPassword" className="block text-sm font-medium text-slate-900 mb-2">
+                <label htmlFor="currentPassword" className="block text-sm font-medium text-text mb-2">
                   Current Password
                 </label>
                 <div className="relative">
@@ -327,7 +329,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-text"
                   >
                     {showCurrentPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -340,7 +342,7 @@ export default function ProfilePage() {
 
               {/* New Password */}
               <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-slate-900 mb-2">
+                <label htmlFor="newPassword" className="block text-sm font-medium text-text mb-2">
                   New Password
                 </label>
                 <div className="relative">
@@ -355,7 +357,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-text"
                   >
                     {showNewPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -368,7 +370,7 @@ export default function ProfilePage() {
 
               {/* Confirm New Password */}
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-900 mb-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-text mb-2">
                   Confirm New Password
                 </label>
                 <div className="relative">
@@ -383,7 +385,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-text"
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -399,7 +401,7 @@ export default function ProfilePage() {
                 <Button
                   type="submit"
                   disabled={passwordLoading}
-                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700"
+                  className="flex items-center gap-2 bg-accent hover:bg-accent-hover"
                 >
                   {passwordLoading ? (
                     <>

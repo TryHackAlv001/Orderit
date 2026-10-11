@@ -13,6 +13,7 @@ interface OrderItemRow {
   quantity: number;
   price_at_purchase: number;
   product_image?: string;
+  selected_size?: string | null;
 }
 
 interface VendorOrderDetail {
@@ -40,6 +41,7 @@ export default function VendorOrderDetailPage() {
   const [savingRider, setSavingRider] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [buyerDetailsError, setBuyerDetailsError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -79,7 +81,7 @@ export default function VendorOrderDetailPage() {
         return;
       }
 
-      const vendorId = vp.id;
+      const vendorId = user.id;
 
       const { data, error: orderError } = await supabase
         .from("orders")
@@ -106,16 +108,20 @@ export default function VendorOrderDetailPage() {
       }
 
       // Fetch buyer details separately
-      const { data: buyer, error: buyerError } = await supabase
-        .from("users")
-        .select("full_name")
-        .eq("id", data.buyer_id)
-        .single();
+      const { data: buyerProfiles, error: buyerError } = await supabase.rpc(
+        "vendor_order_buyer_profiles",
+        { p_buyer_ids: [data.buyer_id] },
+      );
+      if (buyerError) {
+        console.error("Vendor order buyer profile failed to load:", buyerError.message);
+        setBuyerDetailsError("Buyer profile details could not be loaded.");
+      }
+      const buyer = buyerProfiles?.[0];
 
       // Fetch order items separately
       const { data: items, error: itemsError } = await supabase
         .from("order_items")
-        .select("id,product_name,quantity,price_at_purchase,product_image")
+        .select("id,product_name,quantity,price_at_purchase,product_image,selected_size")
         .eq("order_id", orderId);
 
       setOrder({
@@ -129,13 +135,14 @@ export default function VendorOrderDetailPage() {
         payment_status: data.payment_status,
         delivery_address: data.delivery_address,
         created_at: data.created_at,
-        buyer_name: buyer?.full_name || "Buyer",
+        buyer_name: buyer?.full_name || buyer?.email || "Buyer",
         order_items: (items || []).map((item: any) => ({
           id: item.id,
           product_name: item.product_name,
           quantity: item.quantity,
           price_at_purchase: Number(item.price_at_purchase || 0),
           product_image: item.product_image,
+          selected_size: item.selected_size,
         })),
       });
 
@@ -148,7 +155,7 @@ export default function VendorOrderDetailPage() {
   if (loading) {
     return (
       <div className="flex min-h-[350px] items-center justify-center">
-        <div className="animate-spin h-10 w-10 rounded-full border-4 border-t-transparent border-[#1a7a4a]" />
+        <div className="animate-spin h-10 w-10 rounded-full border-4 border-t-transparent border-accent" />
       </div>
     );
   }
@@ -156,13 +163,13 @@ export default function VendorOrderDetailPage() {
   if (error || !order) {
     return (
       <div className="px-4 py-6">
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-10 text-center text-rose-700">
+        <div className="rounded-lg border border-danger bg-danger/10 p-10 text-center text-danger-text">
           <p className="text-lg font-semibold">Unable to load order details.</p>
           <p className="mt-2 text-sm">Please return to the order list and try again.</p>
           <button
             type="button"
             onClick={() => router.push("/vendor/orders")}
-            className="mt-6 rounded-full bg-[#1a7a4a] px-5 py-3 text-sm font-semibold text-white hover:bg-[#166033]"
+            className="mt-6 rounded-md bg-accent px-5 py-3 text-sm font-semibold text-accent-on transition-colors duration-200 hover:brightness-95"
           >
             Back to Orders
           </button>
@@ -179,13 +186,13 @@ export default function VendorOrderDetailPage() {
     <div className="space-y-6 px-4 py-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-slate-900">Order Details</h1>
-          <p className="mt-2 text-sm text-slate-600">Review the order, buyer details, and move it along the workflow.</p>
+          <h1 className="text-3xl font-semibold text-text">Order Details</h1>
+          <p className="mt-2 text-sm text-muted">Review the order, buyer details, and move it along the workflow.</p>
         </div>
         <button
           type="button"
           onClick={() => router.push("/vendor/orders")}
-          className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+          className="rounded-full border border-border bg-surface px-5 py-3 text-sm font-semibold text-text hover:bg-bg"
         >
           Back to Orders
         </button>
@@ -193,11 +200,11 @@ export default function VendorOrderDetailPage() {
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
         <div className="space-y-6">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-500">Order ID</p>
-                <p className="mt-2 text-base text-slate-900">{order.id}</p>
+                <p className="text-sm font-semibold text-muted">Order ID</p>
+                <p className="mt-2 text-base text-text">{order.id}</p>
               </div>
               <span className={`inline-flex rounded-full px-3 py-2 text-sm font-semibold ${statusColor(order.status)}`}>
                 {statusLabel(order.status)}
@@ -205,25 +212,26 @@ export default function VendorOrderDetailPage() {
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <p className="text-sm text-slate-500">Buyer</p>
-                <p className="mt-2 text-slate-900">{order.buyer_name}</p>
+                <p className="text-sm text-muted">Buyer</p>
+                <p className="mt-2 text-text">{order.buyer_name}</p>
+                {buyerDetailsError && <p role="alert" className="mt-1 text-xs text-danger-text">{buyerDetailsError}</p>}
               </div>
               <div>
-                <p className="text-sm text-slate-500">Order date</p>
-                <p className="mt-2 text-slate-900">{new Date(order.created_at).toLocaleString("en-NG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                <p className="text-sm text-muted">Order date</p>
+                <p className="mt-2 text-text">{new Date(order.created_at).toLocaleString("en-NG", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
               </div>
               <div>
-                <p className="text-sm text-slate-500">Delivery address</p>
-                <p className="mt-2 whitespace-pre-wrap text-slate-900">{address}</p>
+                <p className="text-sm text-muted">Delivery address</p>
+                <p className="mt-2 whitespace-pre-wrap text-text">{address}</p>
               </div>
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-slate-900">Items</h2>
+          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-text">Items</h2>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-700">
+                <thead className="bg-bg text-text">
                   <tr>
                     <th className="px-4 py-3">Product</th>
                     <th className="px-4 py-3">Qty</th>
@@ -233,39 +241,42 @@ export default function VendorOrderDetailPage() {
                 </thead>
                 <tbody>
                   {order.order_items.map((item) => (
-                    <tr key={item.id} className="border-t border-slate-200">
-                      <td className="px-4 py-4 text-slate-900">{item.product_name}</td>
-                      <td className="px-4 py-4 text-slate-900">{item.quantity}</td>
-                      <td className="px-4 py-4 text-slate-900">₦{item.price_at_purchase.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-slate-900">₦{(item.price_at_purchase * item.quantity).toLocaleString()}</td>
+                    <tr key={item.id} className="border-t border-border">
+                      <td className="px-4 py-4 text-text">
+                        {item.product_name}
+                        {item.selected_size && <span className="mt-1 block text-sm text-muted">Size: {item.selected_size}</span>}
+                      </td>
+                      <td className="px-4 py-4 text-text">{item.quantity}</td>
+                      <td className="px-4 py-4 font-display text-text">₦{item.price_at_purchase.toLocaleString()}</td>
+                      <td className="px-4 py-4 font-display text-text">₦{(item.price_at_purchase * item.quantity).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="mt-6 space-y-2 rounded-3xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-700">
+            <div className="mt-6 space-y-2 rounded-lg border border-border bg-bg p-5 text-sm text-text">
               <div className="flex items-center justify-between">
                 <span>Subtotal</span>
-                <span>₦{order.subtotal.toLocaleString()}</span>
+                <span className="font-display">₦{order.subtotal.toLocaleString()}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Delivery fee</span>
-                <span>₦{order.delivery_fee.toLocaleString()}</span>
+                <span className="font-display">₦{order.delivery_fee.toLocaleString()}</span>
               </div>
-              <div className="flex items-center justify-between text-slate-900">
+              <div className="flex items-center justify-between text-text">
                 <span className="font-semibold">Total</span>
-                <span className="font-semibold">₦{order.total.toLocaleString()}</span>
+                <span className="font-display font-semibold">₦{order.total.toLocaleString()}</span>
               </div>
             </div>
           </section>
 
-          <OrderTimeline status={order.status as any} />
+          <OrderTimeline status={order.status} orderId={order.id} />
         </div>
 
         <div className="space-y-6">
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Order actions</h2>
-            <p className="mt-2 text-sm text-slate-600">Update this order as it progresses through your kitchen and delivery.</p>
+          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-text">Order actions</h2>
+            <p className="mt-2 text-sm text-muted">Update this order as it progresses through your kitchen and delivery.</p>
             <div className="mt-6">
               <VendorOrderActions
                 orderId={order.id}
@@ -276,12 +287,12 @@ export default function VendorOrderDetailPage() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Assign Dispatch Rider</h2>
-            <p className="mt-2 text-sm text-slate-600">Provide the rider's name and phone for this order.</p>
+          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-text">Assign Dispatch Rider</h2>
+            <p className="mt-2 text-sm text-muted">Provide the rider's name and phone for this order.</p>
             <div className="mt-4 space-y-3">
-              <input value={riderName} onChange={(e) => setRiderName(e.target.value)} placeholder="Rider name" className="w-full rounded-md border border-slate-200 px-3 py-2" />
-              <input value={riderPhone} onChange={(e) => setRiderPhone(e.target.value)} placeholder="Rider phone" className="w-full rounded-md border border-slate-200 px-3 py-2" />
+              <input value={riderName} onChange={(e) => setRiderName(e.target.value)} placeholder="Rider name" className="w-full rounded-md border border-border px-3 py-2" />
+              <input value={riderPhone} onChange={(e) => setRiderPhone(e.target.value)} placeholder="Rider phone" className="w-full rounded-md border border-border px-3 py-2" />
               <div className="flex items-center gap-3">
                 <button type="button" onClick={async () => {
                   if (!riderName && !riderPhone) return;
@@ -302,14 +313,14 @@ export default function VendorOrderDetailPage() {
                     console.error(err);
                     alert(err instanceof Error ? err.message : "Failed to assign rider");
                   } finally { setSavingRider(false); }
-                }} className="rounded-full bg-emerald-600 px-4 py-2 text-white">{savingRider ? "Saving..." : "Save"}</button>
+                }} className="rounded-full bg-accent px-4 py-2 text-accent-on">{savingRider ? "Saving..." : "Save"}</button>
               </div>
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Payment & delivery</h2>
-            <div className="mt-4 space-y-4 text-sm text-slate-700">
+          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-text">Payment & delivery</h2>
+            <div className="mt-4 space-y-4 text-sm text-text">
               <div className="flex justify-between">
                 <span>Payment method</span>
                 <span>{order.payment_method}</span>

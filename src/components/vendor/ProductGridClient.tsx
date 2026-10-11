@@ -19,7 +19,7 @@ export function ProductGridClient({ products, initialViewPublic = true }: Produc
   if (!visible || visible.length === 0) {
     return (
       <div className="py-20 text-center">
-        <p className="mt-4 text-slate-600">No products to display.</p>
+        <p className="mt-4 text-muted">No products to display.</p>
       </div>
     );
   }
@@ -29,7 +29,7 @@ export function ProductGridClient({ products, initialViewPublic = true }: Produc
       {visible.map((product) => (
         <div key={product.id} className="relative">
           {!product.is_active && (
-            <div className="absolute right-3 top-3 z-10 rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800">
+            <div className="absolute right-3 top-3 z-10 rounded-full bg-warning/10 px-2 py-1 text-xs font-semibold text-text">
               Draft
             </div>
           )}

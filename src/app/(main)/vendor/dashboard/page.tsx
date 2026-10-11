@@ -31,6 +31,7 @@ export default function VendorDashboardPage() {
   const [averageRating, setAverageRating] = useState<number | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [lowStock, setLowStock] = useState<ProductLowStock[]>([]);
+  const [incompleteProducts, setIncompleteProducts] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -60,6 +61,7 @@ export default function VendorDashboardPage() {
         }
 
         const vendorId = vpData?.id;
+        const vendorUserId = user.id;
         setVendorProfile(vpData || null);
         setAverageRating(vpData?.rating ?? null);
 
@@ -72,7 +74,7 @@ export default function VendorDashboardPage() {
         const { data: ordersData, error: ordersError } = await supabase
           .from("orders")
           .select("id,total,status,created_at")
-          .eq("vendor_id", vendorId)
+          .eq("vendor_id", vendorUserId)
           .order("created_at", { ascending: false });
 
         if (ordersError) console.error("orders fetch error", ordersError);
@@ -97,16 +99,24 @@ export default function VendorDashboardPage() {
         const { data: productsData, error: productsError } = await supabase
           .from("products")
           .select("id")
-          .eq("vendor_id", vendorId)
+          .eq("vendor_id", vendorUserId)
           .eq("is_active", true);
         if (productsError) console.error("products fetch error", productsError);
         setActiveProducts((productsData || []).length);
+
+        const { data: incompleteData, error: incompleteError } = await supabase
+          .from("products")
+          .select("id")
+          .eq("vendor_id", vendorUserId)
+          .eq("is_complete", false);
+        if (incompleteError) console.error("incomplete products fetch error", incompleteError);
+        setIncompleteProducts((incompleteData || []).length);
 
         // low stock
         const { data: lowData, error: lowError } = await supabase
           .from("products")
           .select("id,name,stock_quantity")
-          .eq("vendor_id", vendorId)
+          .eq("vendor_id", vendorUserId)
           .lte("stock_quantity", 5)
           .order("stock_quantity", { ascending: true });
         if (lowError) console.error("low stock fetch error", lowError);
@@ -125,18 +135,18 @@ export default function VendorDashboardPage() {
   const statusColor = (status: string) => {
     switch (status) {
       case "pending":
-        return "bg-yellow-200 text-yellow-800";
+        return "bg-warning/10 text-text";
       case "confirmed":
-        return "bg-blue-200 text-blue-800";
+        return "bg-accent text-accent-on";
       case "shipped":
       case "out_for_delivery":
-        return "bg-purple-200 text-purple-800";
+        return "bg-accent text-accent-on";
       case "delivered":
-        return "bg-green-200 text-green-800";
+        return "bg-success/10 text-text";
       case "cancelled":
-        return "bg-red-200 text-red-800";
+        return "bg-danger/10 text-danger-text";
       default:
-        return "bg-gray-200 text-gray-800";
+        return "bg-surface-raised text-text";
     }
   };
 
@@ -144,7 +154,7 @@ export default function VendorDashboardPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <svg
-          className="animate-spin h-10 w-10 text-[#1a7a4a]"
+          className="animate-spin h-10 w-10 text-accent-text"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -173,26 +183,41 @@ export default function VendorDashboardPage() {
   return (
     <div className="p-6">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-[#1a7a4a]">
+        <h1 className="text-2xl font-bold text-accent-text">
           Welcome back, {vendorName}
         </h1>
       </header>
 
+      {incompleteProducts > 0 && (
+        <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-warning bg-warning/10 p-5">
+          <div>
+            <h2 className="font-semibold text-text">Complete missing details</h2>
+            <p className="mt-1 text-sm text-text">
+              {incompleteProducts} product{incompleteProducts === 1 ? " needs" : "s need"} required catalog details before appearing in filtered search.
+            </p>
+          </div>
+          <button onClick={() => router.push("/vendor/products")}
+            className="rounded-md border border-warning/30 bg-warning/10 px-4 py-2 text-sm font-semibold text-text">
+            Review products
+          </button>
+        </section>
+      )}
+
       <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 bg-white rounded shadow">
-          <div className="text-sm text-gray-500">Total Revenue</div>
-          <div className="text-xl font-semibold">₦{totalRevenue.toLocaleString()}</div>
+        <div className="rounded-md border border-border bg-surface p-4 shadow-sm">
+          <div className="text-sm text-muted">Total Revenue</div>
+          <div className="font-display text-xl font-semibold">₦{totalRevenue.toLocaleString()}</div>
         </div>
-        <div className="p-4 bg-white rounded shadow">
-          <div className="text-sm text-gray-500">Total Orders</div>
+        <div className="p-4 bg-surface rounded shadow">
+          <div className="text-sm text-muted">Total Orders</div>
           <div className="text-xl font-semibold">{totalOrders}</div>
         </div>
-        <div className="p-4 bg-white rounded shadow">
-          <div className="text-sm text-gray-500">Active Products</div>
+        <div className="p-4 bg-surface rounded shadow">
+          <div className="text-sm text-muted">Active Products</div>
           <div className="text-xl font-semibold">{activeProducts}</div>
         </div>
-        <div className="p-4 bg-white rounded shadow">
-          <div className="text-sm text-gray-500">Average Rating</div>
+        <div className="p-4 bg-surface rounded shadow">
+          <div className="text-sm text-muted">Average Rating</div>
           <div className="text-xl font-semibold">{averageRating ?? "—"}</div>
         </div>
       </section>
@@ -202,25 +227,25 @@ export default function VendorDashboardPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <button
             onClick={() => router.push("/vendor/products/new")}
-            className="py-3 px-4 rounded bg-[#1a7a4a] text-white hover:opacity-90"
+            className="py-3 px-4 rounded bg-accent text-accent-on hover:opacity-90"
           >
             Add Product
           </button>
           <button
             onClick={() => router.push("/vendor/orders")}
-            className="py-3 px-4 rounded bg-[#1a7a4a] text-white hover:opacity-90"
+            className="py-3 px-4 rounded bg-accent text-accent-on hover:opacity-90"
           >
             View Orders
           </button>
           <button
             onClick={() => router.push("/vendor/inventory")}
-            className="py-3 px-4 rounded bg-[#1a7a4a] text-white hover:opacity-90"
+            className="py-3 px-4 rounded bg-accent text-accent-on hover:opacity-90"
           >
             Manage Inventory
           </button>
           <button
             onClick={() => router.push(`/vendor/${vendorId}/store`)}
-            className="py-3 px-4 rounded bg-[#1a7a4a] text-white hover:opacity-90"
+            className="py-3 px-4 rounded bg-accent text-accent-on hover:opacity-90"
           >
             View My Store
           </button>
@@ -229,10 +254,10 @@ export default function VendorDashboardPage() {
 
       <section className="mb-6">
         <h2 className="text-lg font-medium mb-3">Recent Orders</h2>
-        <div className="bg-white shadow rounded overflow-x-auto">
+        <div className="bg-surface shadow rounded overflow-x-auto">
           <table className="min-w-full">
             <thead>
-              <tr className="text-left text-sm text-gray-600 border-b">
+              <tr className="text-left text-sm text-muted border-b">
                 <th className="p-3">Order ID</th>
                 <th className="p-3">Total</th>
                 <th className="p-3">Status</th>
@@ -242,7 +267,7 @@ export default function VendorDashboardPage() {
             <tbody>
               {recentOrders.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-4 text-center text-gray-500">
+                  <td colSpan={4} className="p-4 text-center text-muted">
                     No recent orders
                   </td>
                 </tr>
@@ -268,12 +293,12 @@ export default function VendorDashboardPage() {
         <h2 className="text-lg font-medium mb-3">Low Stock Alerts</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {lowStock.length === 0 && (
-            <div className="p-4 text-gray-500">No low stock products.</div>
+            <div className="p-4 text-muted">No low stock products.</div>
           )}
           {lowStock.map((p) => (
-            <div key={p.id} className="p-4 bg-orange-50 border-l-4 border-orange-400 rounded">
+            <div key={p.id} className="p-4 bg-warning/10 border-l-4 border-warning rounded">
               <div className="font-semibold">{p.name}</div>
-              <div className="text-sm text-orange-700">Only {p.stock_quantity} left</div>
+              <div className="text-sm text-text">Only {p.stock_quantity} left</div>
             </div>
           ))}
         </div>

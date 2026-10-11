@@ -1,8 +1,20 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/store/authStore';
+
+import { useCallback, useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight, MessageSquare, Package, Settings, Star } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
-import { createClient } from '@/lib/supabase/client';
+import { useAuthStore } from '@/store/authStore';
+import type { NotificationType } from '@/lib/notifications';
+
+interface NotificationRecord {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  is_read: boolean;
+  created_at: string;
+  link?: string | null;
+}
 
 function formatTimeAgo(date: string) {
   const now = new Date();
@@ -30,7 +42,7 @@ function getNotificationIcon(type: NotificationType) {
 
 export default function BuyerNotificationsPage() {
   const { user } = useAuthStore();
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -40,7 +52,7 @@ export default function BuyerNotificationsPage() {
   const limit = 20;
   const totalPages = Math.ceil(total / limit);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
@@ -58,11 +70,7 @@ export default function BuyerNotificationsPage() {
         params.set('type', 'message');
       }
 
-      const response = await fetch(`/api/notifications?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${(await createClient().auth.getSession()).data.session?.access_token}`,
-        },
-      });
+      const response = await fetch(`/api/notifications?${params}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -74,19 +82,17 @@ export default function BuyerNotificationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter, limit, page, user]);
 
   useEffect(() => {
     fetchNotifications();
-  }, [user, page, filter]);
+  }, [fetchNotifications]);
 
-  const handleNotificationClick = async (notification: any) => {
+  const handleNotificationClick = async (notification: NotificationRecord) => {
     if (!notification.is_read) {
       await markAsRead(notification.id);
-      setNotifications(prev =>
-        prev.map(n =>
-          n.id === notification.id ? { ...n, is_read: true } : n
-        )
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
       );
     }
 
@@ -108,11 +114,10 @@ export default function BuyerNotificationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold">Notifications</h1>
-          <p className="text-slate-600">Stay updated with your orders and messages.</p>
+          <p className="text-muted">Stay updated with your orders and messages.</p>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-2">
         {[
           { key: 'all', label: 'All' },
@@ -123,13 +128,13 @@ export default function BuyerNotificationsPage() {
           <button
             key={key}
             onClick={() => {
-              setFilter(key as any);
+              setFilter(key as 'all' | 'unread' | 'orders' | 'messages');
               setPage(1);
             }}
             className={`rounded-full px-4 py-2 text-sm font-medium ${
               filter === key
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'bg-accent/10 text-accent-text'
+                : 'bg-surface-raised text-text hover:bg-surface-raised'
             }`}
           >
             {label}
@@ -137,19 +142,18 @@ export default function BuyerNotificationsPage() {
         ))}
       </div>
 
-      {/* Notifications List */}
       <div className="space-y-3">
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="rounded-3xl border border-slate-200 bg-white p-4">
+              <div key={i} className="rounded-lg border border-border bg-surface p-4">
                 <div className="animate-pulse">
                   <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-full bg-slate-200"></div>
+                    <div className="h-10 w-10 rounded-full bg-surface-raised" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-slate-200 rounded w-3/4"></div>
-                      <div className="h-3 bg-slate-200 rounded w-1/2"></div>
-                      <div className="h-3 bg-slate-200 rounded w-1/4"></div>
+                      <div className="h-4 bg-surface-raised rounded w-3/4" />
+                      <div className="h-3 bg-surface-raised rounded w-1/2" />
+                      <div className="h-3 bg-surface-raised rounded w-1/4" />
                     </div>
                   </div>
                 </div>
@@ -157,68 +161,62 @@ export default function BuyerNotificationsPage() {
             ))}
           </div>
         ) : notifications.length === 0 ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center">
-            <p className="text-slate-500">No notifications found.</p>
+          <div className="rounded-lg border border-border bg-surface p-8 text-center">
+            <p className="text-muted">No notifications found.</p>
           </div>
         ) : (
           notifications.map((notification) => (
             <button
               key={notification.id}
               onClick={() => handleNotificationClick(notification)}
-              className={`w-full rounded-3xl border p-4 text-left transition hover:shadow-sm ${
-                !notification.is_read
-                  ? 'border-blue-200 bg-blue-50'
-                  : 'border-slate-200 bg-white'
+              className={`w-full rounded-lg border p-4 text-left transition hover:shadow-sm ${
+                !notification.is_read ? 'border-accent bg-accent/10' : 'border-border bg-surface'
               }`}
             >
               <div className="flex items-start gap-3">
-                <div className={`rounded-full p-2 ${
-                  notification.type === 'order' ? 'bg-blue-100 text-blue-600' :
-                  notification.type === 'message' ? 'bg-green-100 text-green-600' :
-                  notification.type === 'review' ? 'bg-yellow-100 text-yellow-600' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
+                <div
+                  className={`rounded-full p-2 ${
+                    notification.type === 'order'
+                      ? 'bg-accent/10 text-accent-text'
+                      : notification.type === 'message'
+                        ? 'bg-success/10 text-text'
+                        : notification.type === 'review'
+                          ? 'bg-warning/10 text-text'
+                          : 'bg-surface-raised text-muted'
+                  }`}
+                >
                   {getNotificationIcon(notification.type)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-900">
-                    {notification.title}
-                  </p>
-                  <p className="text-sm text-slate-600 mt-1">
-                    {notification.body}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-2">
-                    {formatTimeAgo(notification.created_at)}
-                  </p>
+                  <p className="text-sm font-medium text-text">{notification.title}</p>
+                  <p className="mt-1 text-sm text-muted">{notification.body}</p>
+                  <p className="mt-2 text-xs text-muted">{formatTimeAgo(notification.created_at)}</p>
                 </div>
-                {!notification.is_read && (
-                  <div className="h-2 w-2 rounded-full bg-blue-500 mt-2"></div>
-                )}
+                {!notification.is_read && <div className="mt-2 h-2 w-2 rounded-full bg-accent" />}
               </div>
             </button>
           ))
         )}
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button
-            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
             disabled={page === 1}
-            className="rounded-full p-2 text-slate-400 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-full p-2 text-muted hover:text-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
 
-          <span className="text-sm text-slate-600">
+          <span className="text-sm text-muted">
             Page {page} of {totalPages}
           </span>
 
           <button
-            onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
             disabled={page === totalPages}
-            className="rounded-full p-2 text-slate-400 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-full p-2 text-muted hover:text-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ChevronRight className="h-5 w-5" />
           </button>

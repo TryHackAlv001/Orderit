@@ -16,27 +16,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
       .from("orders")
       .select("id, delivery_code, delivery_code_used, buyer_id, status")
       .eq("id", params.id)
-      .eq("vendor_id", vp?.id)
+      .eq("vendor_id", user.id)
       .single();
 
     if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
     if (order.delivery_code_used) return NextResponse.json({ error: "Delivery code already used" }, { status: 400 });
     if (order.delivery_code !== code) return NextResponse.json({ error: "Invalid delivery code" }, { status: 400 });
 
-    await supabase.from("orders").update({ 
+    const { error: updateError } = await supabase.from("orders").update({
       status: "delivered", 
       delivery_code_used: true,
-      payment_status: "paid"
+      payment_status: "paid",
+      tracking_note: "Delivery confirmed by the buyer",
     }).eq("id", params.id);
-
-    // Notify buyer
-    await supabase.from("notifications").insert({
-      user_id: order.buyer_id,
-      title: "Order Delivered!",
-      body: "Your order has been delivered successfully.",
-      type: "order",
-      link: `/buyer/orders/${params.id}`,
-    });
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
     return NextResponse.json({ success: true });
   } catch (err) {
