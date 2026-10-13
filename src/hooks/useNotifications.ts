@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { getMessageNotificationsEnabled } from '@/lib/user-preferences';
 
 type Notification = {
   id: string;
@@ -18,20 +19,29 @@ export function useNotifications(userId?: string) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const channelRef = useRef<any>(null);
+  const messagesEnabledRef = useRef(true);
 
   const fetchRecentNotifications = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { data } = await supabase
+    const supabase = createClient();
+    const [{ data, error }, messagesEnabled] = await Promise.all([
+      supabase
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(10);
-      setNotifications(data ?? []);
-      setUnreadCount(data?.filter((n: Notification) => !n.is_read).length ?? 0);
+        .limit(10),
+      getMessageNotificationsEnabled(userId),
+    ]);
+    if (error) throw error;
+    messagesEnabledRef.current = messagesEnabled;
+      const visibleNotifications = (data ?? []).filter(
+        (notification: Notification) => messagesEnabledRef.current || notification.type !== 'message'
+      );
+      setNotifications(visibleNotifications);
+      setUnreadCount(visibleNotifications.filter((notification: Notification) => !notification.is_read).length);
     } catch (err) {
       console.error('fetchNotifications error:', err);
     } finally {
@@ -74,14 +84,25 @@ export function useNotifications(userId?: string) {
       table: 'notifications',
       filter: `user_id=eq.${userId}`,
     }, (payload) => {
-      setNotifications(prev => [payload.new as Notification, ...prev]);
-      setUnreadCount(prev => prev + 1);
+      const notification = payload.new as Notification;
+      if (notification.type !== 'message' || messagesEnabledRef.current) {
+        setNotifications(prev => [notification, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      }
     });
 
     channel.subscribe();
     channelRef.current = channel;
+    const handlePreferenceChange = (event: Event) => {
+      const enabled = (event as CustomEvent<{ notify_messages?: unknown }>).detail?.notify_messages;
+      if (typeof enabled !== 'boolean') return;
+      messagesEnabledRef.current = enabled;
+      void fetchRecentNotifications();
+    };
+    window.addEventListener('user-preferences-changed', handlePreferenceChange);
 
     return () => {
+      window.removeEventListener('user-preferences-changed', handlePreferenceChange);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;

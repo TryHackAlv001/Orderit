@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdminClient } from "@/lib/supabase-admin";
 
 interface Params {
   params: {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     ? order.delivery_address
     : { address: order.delivery_address ?? "" };
 
-  const { error } = await supabase.from("orders").update({
+  const { error } = await supabaseAdminClient.from("orders").update({
     status: "cancelled",
     tracking_note: reason,
     delivery_address: { ...deliveryAddress, cancel_reason: reason },

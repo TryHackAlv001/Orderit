@@ -2,44 +2,43 @@
 import { useCartStore } from '@/store/cartStore';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CheckoutVerifyPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
-  const [orderId, setOrderId] = useState<string | null>(null);
-  const clearCart = useCartStore((state) => state.clearCart);
+  const removeProducts = useCartStore((state) => state.removeProducts);
 
   useEffect(() => {
     const verify = async () => {
       const gateway = searchParams.get('gateway');
       const reference = searchParams.get('reference');
-      const orderIdParam = searchParams.get('orderId');
-
-      setOrderId(orderIdParam);
 
       try {
         if (gateway === 'paystack' && reference) {
-          const res = await fetch(`/api/payments/paystack/verify?reference=${reference}`);
+          const res = await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(reference)}`);
           const data = await res.json();
           if (data.success) {
-            clearCart();
+            removeProducts(data.productIds ?? []);
             setStatus('success');
-            setTimeout(() => router.push(`/buyer/orders`), 3000);
           } else {
             setStatus('failed');
           }
         } else if (gateway === 'flutterwave') {
           const transactionId = searchParams.get('transaction_id');
-          const res = await fetch(`/api/payments/flutterwave/verify?transaction_id=${transactionId}`);
+          const res = transactionId
+            ? await fetch(`/api/payments/flutterwave/verify?transaction_id=${encodeURIComponent(transactionId)}`)
+            : null;
+          if (!res) {
+            setStatus('failed');
+            return;
+          }
           const data = await res.json();
-          if (data.success) {
-            clearCart();
+          if (data.verified) {
+            removeProducts(data.productIds ?? []);
             setStatus('success');
-            setTimeout(() => router.push(`/buyer/orders`), 3000);
           } else {
             setStatus('failed');
           }
@@ -52,11 +51,11 @@ export default function CheckoutVerifyPage() {
     };
 
     verify();
-  }, [searchParams, router]);
+  }, [searchParams, removeProducts]);
 
   return (
-    <div className="flex min-h-[60vh] items-center justify-center px-4">
-      <div className="text-center space-y-4 max-w-md">
+    <div className="flex min-h-[60svh] min-w-0 items-center justify-center px-0 md:px-4">
+      <div className="min-w-0 max-w-md space-y-4 text-center">
         {status === 'loading' && (
           <>
             <Loader2 className="h-16 w-16 animate-spin text-accent-text mx-auto" />
@@ -69,10 +68,15 @@ export default function CheckoutVerifyPage() {
           <>
             <CheckCircle className="h-16 w-16 text-text mx-auto" />
             <h1 className="text-2xl font-semibold text-text">Payment Successful! 🎉</h1>
-            <p className="text-muted">Your order has been confirmed. Redirecting to your orders...</p>
-            <Link href="/buyer/orders" className="inline-block mt-4 rounded-md bg-accent px-6 py-2 text-accent-on text-sm font-medium transition-colors duration-200 hover:brightness-95">
-              View My Orders
-            </Link>
+            <p className="text-muted">This seller order is confirmed. Other sellers&apos; items remain in your cart until paid.</p>
+            <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row sm:gap-3">
+              <Link href="/cart" className="inline-flex min-h-11 items-center justify-center rounded-md bg-accent px-6 py-2 text-sm font-medium text-accent-on transition-colors duration-200 hover:brightness-95">
+                Continue Checkout
+              </Link>
+              <Link href="/buyer/orders" className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-6 py-2 text-sm font-medium text-text transition-colors duration-200 hover:bg-surface-raised">
+                View My Orders
+              </Link>
+            </div>
           </>
         )}
 
@@ -81,11 +85,11 @@ export default function CheckoutVerifyPage() {
             <XCircle className="h-16 w-16 text-danger-text mx-auto" />
             <h1 className="text-2xl font-semibold text-text">Payment Failed</h1>
             <p className="text-muted">Something went wrong with your payment. Please try again.</p>
-            <div className="flex gap-3 justify-center mt-4">
-              <Link href="/checkout" className="rounded-md border border-border px-6 py-2 text-sm font-medium text-text transition-colors duration-200 hover:bg-surface-raised">
+            <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row sm:gap-3">
+              <Link href="/checkout" className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-6 py-2 text-sm font-medium text-text transition-colors duration-200 hover:bg-surface-raised">
                 Try Again
               </Link>
-              <Link href="/marketplace" className="rounded-md bg-accent px-6 py-2 text-accent-on text-sm font-medium transition-colors duration-200 hover:brightness-95">
+              <Link href="/marketplace" className="inline-flex min-h-11 items-center justify-center rounded-md bg-accent px-6 py-2 text-sm font-medium text-accent-on transition-colors duration-200 hover:brightness-95">
                 Back to Marketplace
               </Link>
             </div>

@@ -47,7 +47,10 @@ export function Footer() {
 
         <div className="flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">Made with <span className="text-accent-text">❤️</span> for sellers and buyers worldwide</p>
+        <div className="flex flex-wrap items-center gap-4">
+          <Link href="/privacy" className="text-sm text-muted hover:text-text">Privacy</Link>
           <p className="text-sm text-muted">© {new Date().getFullYear()} Tradeloft. All rights reserved.</p>
+        </div>
         </div>
       </div>
     </footer>

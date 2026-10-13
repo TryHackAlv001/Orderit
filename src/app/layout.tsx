@@ -47,6 +47,26 @@ export default function RootLayout({
         {children}
         <Toaster
           position="top-center"
+          containerClassName="app-toaster hidden md:block"
+          containerStyle={{ zIndex: "var(--z-toast)" }}
+          toastOptions={{
+            style: {
+              background: "var(--surface-raised)",
+              color: "var(--foreground)",
+              border: "1px solid var(--border)",
+              boxShadow: "var(--shadow-soft)",
+            },
+            success: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } },
+            error: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } },
+          }}
+        />
+        <Toaster
+          position="bottom-center"
+          containerClassName="app-toaster block md:hidden"
+          containerStyle={{
+            bottom: "calc(var(--bottom-nav-height) + var(--safe-bottom) + 12px)",
+            zIndex: "var(--z-toast)",
+          }}
           toastOptions={{
             style: {
               background: "var(--surface-raised)",

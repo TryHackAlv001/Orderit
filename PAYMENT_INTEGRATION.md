@@ -5,18 +5,16 @@ Successfully integrated both **Paystack** and **Flutterwave** payment gateways i
 
 ## Files Created/Updated
 
-### 1. Payment Gateway Libraries
+### 1. Payment Gateway Integrations
 
-#### `src/lib/paystack.ts`
-- **initializePayment()** - Initializes payment with Paystack API
-  - Parameters: email, amount (in kobo), reference, metadata
-  - Returns: authorization_url, access_code, reference
-  - Handles: Amount conversion (kobo), API communication, error handling
+#### Paystack Supabase Edge Function
 
-- **verifyPayment()** - Verifies payment status after completion
-  - Parameters: transaction reference
-  - Returns: Payment status, amount, customer info, timestamp
-  - Updates: Order payment status in database
+- `supabase/functions/paystack-payments/index.ts`
+  - Initializes and verifies Paystack transactions using `PAYSTACK_SECRET_KEY`
+  - Validates the signed-in buyer and reads the order total from Supabase
+  - Converts the server-stored order total to integer kobo
+  - Confirms successful status, reference, order amount, and NGN currency before marking paid
+  - Uses the service role for protected payment-state and cart updates
 
 #### `src/lib/flutterwave.ts`
 - **initializePayment()** - Generates Flutterwave payment link
@@ -33,18 +31,17 @@ Successfully integrated both **Paystack** and **Flutterwave** payment gateways i
 
 #### Paystack Routes
 - `POST /api/payments/paystack/initialize`
-  - Body: { orderId, email, amount }
+  - Authenticates the buyer and forwards the order ID to the Supabase Edge Function
   - Returns: authorization_url for payment redirect
-  - Updates DB: Sets payment_method, payment_reference, payment_status
 
 - `GET /api/payments/paystack/verify?reference=xxx`
-  - Verifies payment with Paystack
-  - Updates order: Sets payment_status (paid/failed), order status
-  - Returns: Verification result with transaction details
+  - Authenticates the buyer and forwards the reference to the Supabase Edge Function
+  - Returns: verification result
 
 #### Flutterwave Routes
 - `POST /api/payments/flutterwave/initialize`
-  - Body: { orderId, email, amount, customerName, customerPhone }
+  - Body: { orderId, customerName, customerPhone }
+  - Uses the authenticated buyer's account email and the server-stored order total
   - Returns: Flutterwave payment link
   - Updates DB: Sets payment_method, payment_reference, payment_status
 
@@ -59,10 +56,10 @@ Successfully integrated both **Paystack** and **Flutterwave** payment gateways i
 **Enhanced Checkout Form with:**
 - Full name and delivery address inputs
 - Dynamic order summary calculation
-- Subtotal + delivery fee calculation
+- A separate order and delivery fee per seller
 - Two-step form:
   1. Collect delivery info
-  2. Show payment options
+  2. Show separate payment actions; an order is created only when that seller's payment action is selected
 - Error handling and validation
 
 #### `src/components/checkout/PaymentButtons.tsx`
@@ -78,7 +75,7 @@ Successfully integrated both **Paystack** and **Flutterwave** payment gateways i
 **Payment Verification Page:**
 - Displays while payment is being verified
 - Shows success/failure status
-- Auto-redirects to orders on success
+- Links to remaining cart items and orders on success
 - Provides retry options on failure
 - Shows transaction details on completion
 - Graceful error handling for missing parameters
@@ -86,10 +83,6 @@ Successfully integrated both **Paystack** and **Flutterwave** payment gateways i
 ## Environment Variables Required
 
 ```env
-# Paystack
-NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=your_paystack_public_key
-PAYSTACK_SECRET_KEY=your_paystack_secret_key
-
 # Flutterwave
 NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY=your_flutterwave_public_key
 FLUTTERWAVE_SECRET_KEY=your_flutterwave_secret_key
@@ -97,6 +90,14 @@ FLUTTERWAVE_SECRET_KEY=your_flutterwave_secret_key
 # Optional
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
+
+Configure these secrets for the Supabase Edge Function in the Supabase project:
+
+- `PAYSTACK_SECRET_KEY` — Paystack secret key; never add it to the Next.js environment or client bundle.
+- `APP_URL` — public base URL of the application, used for the Paystack callback URL.
+
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are read from the Edge Function runtime environment.
+Deploy the function as `paystack-payments` after setting its secrets.
 
 ## Payment Flow
 
@@ -106,10 +107,10 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 3. API initializes payment → receives authorization_url
 4. User redirected to Paystack
 5. User completes payment on Paystack
-6. User redirected back to `/checkout/verify?gateway=paystack&reference=xxx`
+6. User redirected back to `/checkout/verify?gateway=paystack&reference=xxx&orderId=xxx`
 7. Verification page calls `/api/payments/paystack/verify`
-8. Payment verified and order status updated
-9. User redirected to `/main/orders`
+8. Payment and amount verified; that order is updated and its cart items are removed
+9. User can continue to checkout the remaining sellers or view orders
 
 ### Flutterwave Payment Flow
 1. User fills checkout form
@@ -117,10 +118,10 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 3. API initializes payment → receives payment link
 4. User redirected to Flutterwave
 5. User completes payment on Flutterwave
-6. User redirected back to `/checkout/verify?gateway=flutterwave&transaction_id=xxx`
+6. User redirected back to `/checkout/verify?gateway=flutterwave&orderId=xxx&transaction_id=xxx`
 7. Verification page calls `/api/payments/flutterwave/verify`
-8. Payment verified and order status updated
-9. User redirected to `/main/orders`
+8. Payment and amount verified; that order is updated and its cart items are removed
+9. User can continue to checkout the remaining sellers or view orders
 
 ## Database Integration
 
@@ -141,7 +142,7 @@ Payment information is stored in the `orders` table:
 
 ## Security Considerations
 
-✓ Secret keys stored in server-side .env
+✓ Paystack secret key stored as a Supabase Edge Function secret
 ✓ Front-end uses public keys only
 ✓ Server-side verification of all payments
 ✓ Order validation before payment processing
@@ -159,15 +160,13 @@ Payment information is stored in the `orders` table:
 - [ ] Verify page shows success and redirects to orders
 - [ ] Test payment failure scenarios
 - [ ] Test network errors and retries
-- [ ] Verify order totals are correct (subtotal + delivery fee)
+- [ ] Verify mixed-seller carts create one order per seller
+- [ ] Verify each order total includes its own delivery fee
 
 ## Next Steps (Recommended)
 
-1. Integrate with authentication to get user email/name automatically
-2. Create order creation API endpoint (currently mocked)
-3. Add email notifications on payment success/failure
-4. Implement order tracking dashboard
-5. Add payment receipt generation
-6. Implement refund handling
-7. Add webhook support for instant payment confirmation
-8. Add payment history in user dashboard
+1. Add email notifications on payment success/failure
+2. Add payment receipt generation
+3. Implement refund handling
+4. Add webhook support for instant payment confirmation
+5. Add payment history in user dashboard

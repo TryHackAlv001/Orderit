@@ -1,32 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initializePayment } from "@/lib/flutterwave";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdminClient } from "@/lib/supabase-admin";
 
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, email, amount, customerName, customerPhone } = body;
+    const { orderId, customerName, customerPhone } = body;
 
-    // Validate inputs
-    if (!orderId || !email || !amount) {
+    if (typeof orderId !== "string" || !orderId) {
       return NextResponse.json(
-        { error: "Missing required fields: orderId, email, amount" },
+        { error: "Order ID is required" },
         { status: 400 }
       );
     }
 
     const supabase = createSupabaseServerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
+    }
+    if (!user.email) {
+      return NextResponse.json(
+        { error: "Your account does not have an email address" },
+        { status: 400 }
+      );
+    }
 
-    // Verify order exists and get buyer info
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('*, buyer(*)')
+      .select('id,buyer_id,total,status,payment_status')
       .eq('id', orderId)
+      .eq('buyer_id', user.id)
       .single();
 
     if (orderError || !order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+    if (order.status !== "pending" || order.payment_status !== "pending") {
+      return NextResponse.json({ error: "This order is not awaiting payment" }, { status: 409 });
+    }
+
+    const amount = Number(order.total);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json({ error: "Order total is invalid" }, { status: 400 });
     }
 
     // Generate unique transaction reference
@@ -34,16 +52,16 @@ export async function POST(request: NextRequest) {
 
     // Initialize Flutterwave payment
     const flutterwaveResponse = await initializePayment(
-      email,
+      user.email,
       amount,
       txRef,
       {
-        name: customerName || order.buyer.full_name || "Customer",
-        phone: customerPhone || order.buyer.phone || "",
+        name: typeof customerName === "string" ? customerName : "Customer",
+        phone: typeof customerPhone === "string" ? customerPhone : "",
       },
       {
         orderId,
-        buyerId: order.buyer_id,
+        buyerId: user.id,
       }
     );
 
@@ -55,11 +73,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Update order with payment reference
-    await supabase.from('orders').update({
+    const { error: updateError } = await supabaseAdminClient.from('orders').update({
       payment_method: "flutterwave",
       payment_reference: txRef,
       payment_status: "pending",
     }).eq('id', orderId);
+    if (updateError) {
+      console.error("Unable to save Flutterwave payment reference:", updateError.message);
+      return NextResponse.json({ error: "Unable to save payment details" }, { status: 500 });
+    }
 
     return NextResponse.json({
       status: true,

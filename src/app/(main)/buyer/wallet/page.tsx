@@ -22,7 +22,7 @@ export default async function BuyerWalletPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
+    <div className="mx-auto w-full max-w-3xl min-w-0 space-y-6 px-0 py-6 md:px-4">
       <div>
         <h1 className="text-3xl font-semibold text-text">Wallet</h1>
         <p className="mt-2 text-sm text-muted">Refunds from approved returns are credited here.</p>

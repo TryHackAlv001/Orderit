@@ -18,7 +18,7 @@ export function AnnouncementBar() {
   }, []);
 
   return (
-    <div className="fixed left-0 right-0 top-[65px] z-30 h-9 overflow-hidden bg-accent text-accent-on md:static md:z-auto md:h-auto md:overflow-visible">
+    <div className="fixed left-0 right-0 top-[calc(var(--mobile-header-height)+var(--safe-top))] z-sticky h-9 overflow-hidden bg-accent text-accent-on md:static md:z-auto md:h-auto md:overflow-visible">
       <div className="flex h-full items-center justify-center overflow-hidden whitespace-nowrap px-4 text-center text-xs font-medium md:mx-auto md:grid md:h-auto md:max-w-7xl md:grid-cols-3 md:items-center md:overflow-visible md:px-6 md:py-2 md:whitespace-normal md:text-sm">
         {MARKETPLACE_ANNOUNCEMENTS.map((message, index) => (
           <p

@@ -35,7 +35,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id,vendor_id,status")
+    .select("id,vendor_id,status,payment_status")
     .eq("id", params.id)
     .single();
   if (orderError || !order) return NextResponse.json({ error: "Order not found or access denied." }, { status: 404 });
@@ -49,6 +49,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
   if (!nextStatuses[order.status]?.includes(body.status)) {
     return NextResponse.json({ error: `Cannot move an order from ${order.status} to ${body.status}.` }, { status: 400 });
+  }
+  if (order.payment_status !== "paid") {
+    return NextResponse.json({ error: "An order must be paid before fulfillment." }, { status: 409 });
   }
 
   const { data: updated, error: updateError } = await supabase

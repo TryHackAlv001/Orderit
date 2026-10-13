@@ -19,12 +19,12 @@ const VENDOR_PROTECTED_PREFIXES = [
 const BUYER_PROTECTED_PREFIXES = [
   "/buyer/dashboard",
   "/buyer/orders",
-  "/buyer/profile",
 ];
 
 const PROTECTED_ROUTE_PREFIXES = [
   ...VENDOR_PROTECTED_PREFIXES,
   ...BUYER_PROTECTED_PREFIXES,
+  "/settings",
   "/checkout",
   "/messages",
 ];

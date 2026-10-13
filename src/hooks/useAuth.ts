@@ -11,52 +11,56 @@ export function useAuth() {
 
   const loadSession = async () => {
     setIsLoading(true);
-    const { data, error } = await createClient().auth.getUser();
+    try {
+      const { data, error } = await createClient().auth.getUser();
 
-    if (error) {
-      clearAuth();
-      setIsLoading(false);
-      return;
-    }
+      if (error) {
+        clearAuth();
+        setIsLoading(false);
+        return;
+      }
 
-    const sessionUser = data?.user;
-    if (!sessionUser) {
-      clearAuth();
-      setIsLoading(false);
-      return;
-    }
+      const sessionUser = data?.user;
+      if (!sessionUser) {
+        clearAuth();
+        setIsLoading(false);
+        return;
+      }
 
-    const { data: userData, error: userError } = await createClient()
-      .from("users")
-      .select("*")
-      .eq("id", sessionUser.id)
-      .single();
-
-    if (userError || !userData) {
-      clearAuth();
-      setIsLoading(false);
-      return;
-    }
-
-    setUser(userData);
-
-    if (userData.role === "vendor") {
-      const { data: vendorProfile, error: vendorError } = await createClient()
-        .from("vendor_profiles")
+      const { data: userData, error: userError } = await createClient()
+        .from("users")
         .select("*")
-        .eq("user_id", sessionUser.id)
+        .eq("id", sessionUser.id)
         .single();
 
-      if (!vendorError && vendorProfile) {
-        setProfile(vendorProfile as AuthProfile);
+      if (userError || !userData) {
+        clearAuth();
+        setIsLoading(false);
+        return;
+      }
+
+      setUser(userData);
+
+      if (userData.role === "vendor") {
+        const { data: vendorProfile, error: vendorError } = await createClient()
+          .from("vendor_profiles")
+          .select("*")
+          .eq("user_id", sessionUser.id)
+          .single();
+
+        if (!vendorError && vendorProfile) {
+          setProfile(vendorProfile as AuthProfile);
+        } else {
+          setProfile(userData as AuthProfile);
+        }
       } else {
         setProfile(userData as AuthProfile);
       }
-    } else {
-      setProfile(userData as AuthProfile);
-    }
 
-    setIsLoading(false);
+      setIsLoading(false);
+    } catch {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {

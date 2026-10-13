@@ -22,17 +22,7 @@ export interface MarketplaceSearchVendor {
   is_verified: boolean;
 }
 
-export async function loadMarketplaceProducts(
-  params: URLSearchParams,
-  signal?: AbortSignal,
-): Promise<MarketplaceSearchResult> {
-  const query = params.toString();
-  const response = await fetch(`/api/products/search${query ? `?${query}` : ""}`, { signal });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Unable to search products.");
-
-  const products = (result.products ?? []) as MarketplaceGridProduct[];
-  const vendors = (result.vendors ?? []) as MarketplaceSearchVendor[];
+async function hydrateMarketplaceProducts(products: MarketplaceGridProduct[]) {
   const vendorIds = Array.from(new Set(products.map((product) => product.vendor_id)));
   const productIds = products.map((product) => product.id);
   const supabase = createClient();
@@ -41,7 +31,7 @@ export async function loadMarketplaceProducts(
       ? supabase.from("vendor_profiles").select("user_id,is_verified").in("user_id", vendorIds)
       : Promise.resolve({ data: [], error: null }),
     productIds.length
-      ? supabase.from("product_variants").select("product_id,color,size,stock_quantity").in("product_id", productIds)
+      ? supabase.from("product_variants").select("id,product_id,color,size,stock_quantity").in("product_id", productIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -60,6 +50,7 @@ export async function loadMarketplaceProducts(
   (variantResult.data ?? []).forEach((variant) => {
     const variants = variantsByProduct.get(variant.product_id) ?? [];
     variants.push({
+      id: variant.id,
       color: variant.color,
       size: variant.size,
       stock_quantity: variant.stock_quantity,
@@ -77,9 +68,27 @@ export async function loadMarketplaceProducts(
       variants: variantsByProduct.get(product.id) ?? [],
       variantsLoaded: !variantResult.error,
     })),
+    warning: warnings.length ? warnings.join(" ") : null,
+  };
+}
+
+export async function loadMarketplaceProducts(
+  params: URLSearchParams,
+  signal?: AbortSignal,
+): Promise<MarketplaceSearchResult> {
+  const query = params.toString();
+  const response = await fetch(`/api/products/search${query ? `?${query}` : ""}`, { signal });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "Unable to search products.");
+
+  const products = (result.products ?? []) as MarketplaceGridProduct[];
+  const vendors = (result.vendors ?? []) as MarketplaceSearchVendor[];
+  const hydrated = await hydrateMarketplaceProducts(products);
+  return {
+    products: hydrated.products,
     vendors,
     totalCount: Number(result.totalCount ?? 0),
     options: result.options ?? { categories: [], colors: [], brands: [] },
-    warning: warnings.length ? warnings.join(" ") : null,
+    warning: hydrated.warning,
   };
 }

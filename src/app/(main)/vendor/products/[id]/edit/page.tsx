@@ -58,5 +58,5 @@ export default function EditVendorProductPage() {
   if (error) return <div role="alert" className="m-4 rounded-lg bg-danger/10 p-4 text-danger-text">{error}</div>;
   if (!options || !product) return <div className="flex min-h-[300px] items-center justify-center text-muted">Loading product…</div>;
 
-  return <div className="px-4 py-6"><CatalogProductForm mode="edit" options={options} product={product} /></div>;
+  return <div className="min-w-0 px-0 py-6 md:px-4"><CatalogProductForm mode="edit" options={options} product={product} /></div>;
 }

@@ -98,6 +98,81 @@ export const CURRENCY_OPTIONS: CurrencyOption[] = [
 
 export const DEFAULT_CURRENCY = "NGN";
 
+export const MOBILE_LAYOUT = {
+  bottomNavHeight: "var(--bottom-nav-height)",
+  floatingBackSize: "var(--floating-back-size)",
+  safeTop: "var(--safe-top)",
+  safeBottom: "var(--safe-bottom)",
+} as const;
+
+export const MOBILE_BOTTOM_NAV_HIDDEN_ROUTES = [
+  "/settings",
+  "/about",
+  "/privacy",
+  "/terms",
+  "/refund-policy",
+] as const;
+
+export function isMobileBottomNavHidden(pathname: string) {
+  return MOBILE_BOTTOM_NAV_HIDDEN_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+}
+
+export const NO_TOP_NAV_ROUTE_PREFIXES = [
+  "/buyer/orders",
+  "/settings",
+  "/buyer/profile",
+  "/checkout",
+] as const;
+
+export const FLOATING_BACK_BUTTON_CONFIG = {
+  routePrefixes: NO_TOP_NAV_ROUTE_PREFIXES,
+  excludedRoutes: ["/buyer/profile", "/checkout/verify"] as const,
+  parentRoutes: {
+    buyerOrders: "/buyer/profile",
+    buyerOrderDetail: "/buyer/orders",
+    settings: "/settings",
+    settingsHome: "/buyer/profile",
+    checkout: "/cart",
+    buyerProfile: "/buyer/profile",
+  },
+} as const;
+
+function matchesRoutePrefix(pathname: string, routePrefix: string) {
+  return pathname === routePrefix || pathname.startsWith(`${routePrefix}/`);
+}
+
+export function isNoTopNavRoute(pathname: string) {
+  return NO_TOP_NAV_ROUTE_PREFIXES.some((route) => matchesRoutePrefix(pathname, route));
+}
+
+export function isFloatingBackButtonRoute(pathname: string) {
+  const isExcluded = FLOATING_BACK_BUTTON_CONFIG.excludedRoutes.some((route) => route === pathname);
+  return !isExcluded && FLOATING_BACK_BUTTON_CONFIG.routePrefixes.some((route) =>
+    matchesRoutePrefix(pathname, route),
+  );
+}
+
+export function getFloatingBackFallback(pathname: string) {
+  if (pathname.startsWith("/buyer/profile/")) {
+    return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.buyerProfile;
+  }
+  if (pathname.startsWith("/buyer/orders/")) {
+    return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.buyerOrderDetail;
+  }
+  if (pathname === "/buyer/orders") {
+    return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.buyerOrders;
+  }
+  if (pathname.startsWith("/settings/")) {
+    return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.settings;
+  }
+  if (pathname === "/settings") {
+    return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.settingsHome;
+  }
+  return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.checkout;
+}
+
 export const MARKETPLACE_ANNOUNCEMENTS = [
   { id: "shipping", text: "Free shipping on qualifying orders" },
   { id: "delivery", text: "Delivery guarantee · Refund for any issues" },
@@ -105,7 +180,7 @@ export const MARKETPLACE_ANNOUNCEMENTS = [
 
 export const HOME_HERO_COPY = {
   tagline: "Shop the season's best",
-  heading: "EXPLORE YOUR INTERESTS",
+  heading: "Explore products",
 } as const;
 
 export function getCurrencyOption(code: string) {

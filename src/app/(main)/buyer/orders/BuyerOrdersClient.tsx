@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { statusLabel, statusColor } from "@/lib/order-status";
 
 interface Order {
@@ -20,10 +21,20 @@ interface Order {
   }[];
 }
 
-export function BuyerOrdersPage({ orders }: { orders: Order[] }) {
+export function BuyerOrdersPage({
+  orders,
+  error,
+  showInProgressOnly,
+}: {
+  orders: Order[];
+  error: boolean;
+  showInProgressOnly: boolean;
+}) {
+  const router = useRouter();
+
   return (
-    <div className="space-y-6 px-4 py-6">
-      <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+    <div className="min-w-0 space-y-6 px-0 pb-6 pt-0 md:px-4">
+      <div className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold text-text">Your Orders</h1>
@@ -35,10 +46,49 @@ export function BuyerOrdersPage({ orders }: { orders: Order[] }) {
         </div>
       </div>
 
-      {orders.length === 0 ? (
+      <nav className="flex flex-wrap gap-2 border-b border-border" aria-label="Order filters">
+        <Link
+          href="/buyer/orders?filter=all"
+          aria-current={!showInProgressOnly ? "page" : undefined}
+          className={`border-b-2 px-4 py-3 text-sm font-semibold ${
+            !showInProgressOnly ? "border-accent text-text" : "border-transparent text-muted"
+          }`}
+        >
+          All orders
+        </Link>
+        <Link
+          href="/buyer/orders?filter=in_progress"
+          aria-current={showInProgressOnly ? "page" : undefined}
+          className={`border-b-2 px-4 py-3 text-sm font-semibold ${
+            showInProgressOnly ? "border-accent text-text" : "border-transparent text-muted"
+          }`}
+        >
+          In progress
+        </Link>
+      </nav>
+
+      {error ? (
+        <div role="alert" className="rounded-lg border border-danger/30 bg-danger/10 p-8 text-center">
+          <p className="font-semibold text-danger-text">Your orders could not be loaded.</p>
+          <p className="mt-2 text-sm text-muted">Check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => router.refresh()}
+            className="mt-4 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-accent-on hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Retry
+          </button>
+        </div>
+      ) : orders.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border bg-bg p-12 text-center text-muted">
-          <p className="text-xl font-semibold text-text">No orders yet</p>
-          <p className="mt-2">Your completed purchases will appear here.</p>
+          <p className="text-xl font-semibold text-text">
+            {showInProgressOnly ? "No orders in progress" : "No orders yet"}
+          </p>
+          <p className="mt-2">
+            {showInProgressOnly
+              ? "Orders that are pending, confirmed, preparing, shipped, or out for delivery will appear here."
+              : "Your purchases will appear here."}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -63,7 +113,7 @@ function OrderRow({ order }: { order: Order }) {
           </div>
           <div>
             <p className="text-sm font-medium text-muted">Vendor</p>
-            <p className="text-text">{order.vendor?.shop_name || "Unknown Vendor"}</p>
+            <p className="truncate text-text" title={order.vendor?.shop_name || "Unknown Vendor"}>{order.vendor?.shop_name || "Unknown Vendor"}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-muted">Items</p>
@@ -94,7 +144,7 @@ function OrderRow({ order }: { order: Order }) {
         {order.order_items?.length > 0 && (
           <div className="space-y-1 border-t border-border px-4 py-3 text-sm sm:px-6">
             {order.order_items.map((item, index) => (
-              <p key={`${item.product_name}-${index}`} className="text-text">
+              <p key={`${item.product_name}-${index}`} className="line-clamp-2 break-words text-text">
                 {item.product_name}{item.selected_size ? ` · Size: ${item.selected_size}` : ""}
               </p>
             ))}

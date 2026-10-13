@@ -50,7 +50,7 @@ export default function DeliveryCodeBox({
 
       {/* Modal overlay */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 p-4">
+        <div className="fixed inset-0 z-modal flex items-center justify-center bg-background/50 p-4">
           <div className="w-full max-w-sm rounded-lg bg-surface p-8 shadow-xl">
             {/* Code Display */}
             <div className="mb-8 rounded-lg bg-accent/10 p-6 text-center">

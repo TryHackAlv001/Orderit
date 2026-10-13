@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdminClient } from "@/lib/supabase-admin";
 import { getSizeConfig, isValidSize } from "@/constants/sizes";
+import { isOwnProduct } from "@/lib/is-own-product";
 
 interface OrderItemPayload {
   productId: string;
   quantity: number;
+  variantId?: string | null;
+  expectedPrice?: number;
   selectedSize?: string | null;
+  selectedColor?: string | null;
+}
+
+interface ProductVariantRow {
+  id: string;
+  product_id: string;
+  size: string | null;
+  color: string | null;
+  stock_quantity: number;
 }
 
 class OrderValidationError extends Error {}
@@ -35,13 +48,16 @@ export async function POST(request: NextRequest) {
 
     const { data: user, error: userError } = await supabase
       .from("users").select("role").eq("id", userId).single();
-    if (userError || !user || user.role !== "buyer")
+    if (userError || !user || (user.role !== "buyer" && user.role !== "vendor"))
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
     if (items.some((item) => !item || typeof item.productId !== "string" ||
         !Number.isInteger(item.quantity) || item.quantity <= 0 ||
-        (item.selectedSize !== undefined && item.selectedSize !== null && typeof item.selectedSize !== "string"))) {
-      return NextResponse.json({ error: "Each cart item must include a valid product, quantity, and optional size." }, { status: 400 });
+        (item.variantId !== undefined && item.variantId !== null && typeof item.variantId !== "string") ||
+        (item.expectedPrice !== undefined && (!Number.isFinite(item.expectedPrice) || item.expectedPrice < 0)) ||
+        (item.selectedSize !== undefined && item.selectedSize !== null && typeof item.selectedSize !== "string") ||
+        (item.selectedColor !== undefined && item.selectedColor !== null && typeof item.selectedColor !== "string"))) {
+      return NextResponse.json({ error: "Each cart item must include a valid product, quantity, and optional product option." }, { status: 400 });
     }
 
     const productIds = Array.from(new Set(items.map((item) => item.productId)));
@@ -54,34 +70,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "One or more cart items are invalid" }, { status: 400 });
 
     const normalizedProducts = products as Array<any>;
+    const hasOwnProduct = normalizedProducts.some((product) =>
+      isOwnProduct(product.vendor_id, userId)
+    );
+    if (hasOwnProduct) {
+      return NextResponse.json(
+        { error: "You can't purchase your own products." },
+        { status: 403 }
+      );
+    }
+
     const vendorIds = Array.from(new Set(normalizedProducts.map((p) => p.vendor_id)));
     if (vendorIds.length !== 1)
       return NextResponse.json(
-        { error: "All items must be from the same vendor" }, { status: 400 }
+        { error: "Each order must contain items from exactly one seller." }, { status: 400 }
       );
 
     const { data: variants, error: variantsError } = await supabase
       .from("product_variants")
-      .select("product_id,size,stock_quantity")
+      .select("id,product_id,size,color,stock_quantity")
       .in("product_id", productIds);
     if (variantsError) {
-      console.error("Unable to validate order size inventory:", variantsError.message);
-      return NextResponse.json({ error: "Unable to validate product sizes. Please retry checkout." }, { status: 500 });
+      console.error("Unable to validate order option inventory:", variantsError.message);
+      return NextResponse.json({ error: "Unable to validate product options. Please retry checkout." }, { status: 500 });
     }
 
-    const variantsByProduct = new Map<string, { size: string | null; stock_quantity: number }[]>();
-    (variants ?? []).forEach((variant) => {
+    const variantsByProduct = new Map<string, ProductVariantRow[]>();
+    ((variants ?? []) as ProductVariantRow[]).forEach((variant) => {
       variantsByProduct.set(variant.product_id, [
         ...(variantsByProduct.get(variant.product_id) ?? []),
-        { size: variant.size, stock_quantity: variant.stock_quantity },
+        variant,
       ]);
     });
 
+    const requestedVariantQuantities = new Map<string, number>();
     const requestedSizeQuantities = new Map<string, number>();
     for (const item of items) {
       const selectedSize = typeof item.selectedSize === "string" ? item.selectedSize.trim() : null;
       const key = `${item.productId}::${selectedSize ?? "default"}`;
       requestedSizeQuantities.set(key, (requestedSizeQuantities.get(key) ?? 0) + item.quantity);
+      if (item.variantId) {
+        requestedVariantQuantities.set(
+          item.variantId,
+          (requestedVariantQuantities.get(item.variantId) ?? 0) + item.quantity,
+        );
+      }
     }
 
     const orderItems = items.map((item) => {
@@ -94,7 +127,41 @@ export async function POST(request: NextRequest) {
       const requiresSize = product.size_type
         ? product.size_type !== "none"
         : sizeConfig.type !== "none";
-      const selectedSize = typeof item.selectedSize === "string" ? item.selectedSize.trim() : null;
+      const requestedSize = typeof item.selectedSize === "string" ? item.selectedSize.trim() : null;
+      const requestedColor = typeof item.selectedColor === "string" ? item.selectedColor.trim() : null;
+      const productVariants = variantsByProduct.get(product.id) ?? [];
+      const activeVariants = productVariants.filter((variant) => variant.stock_quantity > 0);
+      if (activeVariants.length === 0 && productVariants.length > 0) {
+        throw new OrderValidationError(`${product.name} is out of stock.`);
+      }
+      if (activeVariants.length > 1 && !item.variantId) {
+        throw new OrderValidationError(`Choose size/color options for ${product.name} before checkout.`);
+      }
+      if (item.expectedPrice !== undefined &&
+          Number(item.expectedPrice) !== Number(product.price)) {
+        throw new OrderValidationError(`The price for ${product.name} has changed. Review your cart and retry.`);
+      }
+
+      const selectedVariant = item.variantId
+        ? productVariants.find((variant) => variant.id === item.variantId)
+        : activeVariants.length === 1 ? activeVariants[0] : undefined;
+      if (item.variantId && !selectedVariant) {
+        throw new OrderValidationError(`The selected option is no longer available for ${product.name}.`);
+      }
+      if (selectedVariant && selectedVariant.stock_quantity <= 0) {
+        throw new OrderValidationError(`The selected option for ${product.name} is out of stock.`);
+      }
+      if (selectedVariant &&
+          ((requestedSize !== null && selectedVariant.size !== requestedSize) ||
+           (requestedColor !== null && selectedVariant.color !== requestedColor))) {
+        throw new OrderValidationError(`The selected options do not match ${product.name}. Refresh your cart and try again.`);
+      }
+      if (selectedVariant &&
+          (requestedVariantQuantities.get(selectedVariant.id) ?? item.quantity) > selectedVariant.stock_quantity) {
+        throw new OrderValidationError(`The selected option for ${product.name} no longer has enough stock.`);
+      }
+
+      const selectedSize = selectedVariant?.size ?? requestedSize;
       if (requiresSize && !selectedSize) {
         throw new OrderValidationError(`Select a ${sizeConfig.label.toLowerCase()} for ${product.name}.`);
       }
@@ -104,7 +171,7 @@ export async function POST(request: NextRequest) {
       if (selectedSize && !isValidSize(sizeSlug, selectedSize)) {
         throw new OrderValidationError(`The selected size is not valid for ${product.name}.`);
       }
-      const productVariants = variantsByProduct.get(product.id) ?? [];
+
       const sizesFromVariants = productVariants.map((variant) => variant.size).filter((size): size is string => Boolean(size));
       const availableSizes = Array.isArray(product.available_sizes) && product.available_sizes.length
         ? product.available_sizes
@@ -121,7 +188,7 @@ export async function POST(request: NextRequest) {
       if (productQuantity > product.stock_quantity) {
         throw new OrderValidationError(`${product.name} does not have enough stock.`);
       }
-      if (selectedSize && (!availableSizes.includes(selectedSize) ||
+      if (!selectedVariant && selectedSize && (!availableSizes.includes(selectedSize) ||
           sizeStock < requestedSizeQuantity)) {
         throw new OrderValidationError(`${product.name} is out of stock in size ${selectedSize}.`);
       }
@@ -132,6 +199,7 @@ export async function POST(request: NextRequest) {
         product_name: product.name,
         product_image: product.images?.[0] ?? null,
         selected_size: selectedSize,
+        variant_id: selectedVariant?.id ?? null,
       };
     });
 
@@ -143,7 +211,7 @@ export async function POST(request: NextRequest) {
     // generate a random 6-digit delivery code for buyer verification
     const deliveryCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdminClient
       .from("orders")
       .insert({
         buyer_id: userId,
@@ -163,20 +231,20 @@ export async function POST(request: NextRequest) {
     if (orderError || !order)
       return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
 
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await supabaseAdminClient
       .from("order_items")
       .insert(orderItems.map((item) => ({ ...item, order_id: order.id })));
 
     if (itemsError)
       return NextResponse.json({ error: "Failed to save order items" }, { status: 500 });
 
-    if (orderItems.some((item) => item.selected_size)) {
+    if (orderItems.some((item) => item.variant_id)) {
       const { data: stockReserved, error: reserveError } = await supabase.rpc(
         "reserve_order_variant_sizes",
         { p_order_id: order.id }
       );
       if (reserveError || !stockReserved) {
-        if (reserveError) console.error("Unable to reserve selected size stock:", reserveError.message);
+        if (reserveError) console.error("Unable to reserve selected product options:", reserveError.message);
         const { data: cancelled, error: cancelError } = reserveError
           ? await supabase.rpc("cancel_unpaid_order", { p_order_id: order.id })
           : { data: true, error: null };
@@ -186,15 +254,13 @@ export async function POST(request: NextRequest) {
         }
         return NextResponse.json({
           error: reserveError
-            ? "Unable to reserve the selected sizes. The unpaid order was cancelled."
-            : "A selected size just sold out. The unpaid order was cancelled; refresh your cart and retry.",
+            ? "Unable to reserve the selected options. The unpaid order was cancelled."
+            : "A selected option just sold out. The unpaid order was cancelled; refresh your cart and retry.",
         }, { status: reserveError ? 500 : 409 });
       }
     }
 
-
-
-    // Deduct stock for each product
+    // Deduct stock for each product.
     try {
       const quantitiesByProduct = new Map<string, number>();
       orderItems.forEach((item) => quantitiesByProduct.set(
@@ -205,7 +271,7 @@ export async function POST(request: NextRequest) {
         const product = products.find((p) => p.id === productId);
         if (product) {
           const newStock = Math.max(0, product.stock_quantity - quantity);
-          await supabase
+          await supabaseAdminClient
             .from("products")
             .update({ stock_quantity: newStock })
             .eq("id", productId);

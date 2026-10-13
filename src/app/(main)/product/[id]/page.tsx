@@ -5,17 +5,19 @@ import { MessageVendorButton } from '@/components/messaging/MessageVendorButton'
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams } from 'next/navigation';
-import { Star, ShoppingCart, MessageSquare, Heart, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, ShoppingCart, MessageSquare, Heart, Share2, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency, getCurrencyOption } from '@/constants';
 import { useCurrencyStore } from '@/store/currencyStore';
-import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
+import { useAddToCart } from '@/hooks/useAddToCart';
+import { isOwnProduct } from '@/lib/is-own-product';
 import { ProductReviewsSection } from '@/components/product/ProductReviewsSection';
 import Script from 'next/script';
+import toast from 'react-hot-toast';
 import { Product as GlobalProduct } from '@/types';
 import { getSizeConfig, getSizeLabel } from '@/constants/sizes';
 import { getSizeGuideKey, SIZE_GUIDES } from '@/constants/size-guides';
@@ -38,7 +40,9 @@ interface ProductWithVendor extends GlobalProduct {
 }
 
 interface ProductSizeVariant {
+  id: string;
   size: string | null;
+  color: string | null;
   stock_quantity: number;
 }
 
@@ -54,12 +58,18 @@ export default function ProductDetailPage() {
   const [activeTab, setActiveTab] = useState('description');
   const [sizeVariants, setSizeVariants] = useState<ProductSizeVariant[]>([]);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [cartError, setCartError] = useState<string | null>(null);
 
   const currency = getCurrencyOption(useCurrencyStore((state) => state.currency));
-  const addItem = useCartStore((state) => state.addItem);
+  const addCartItem = useAddToCart();
   const { user } = useAuthStore();
+
+  useEffect(() => {
+    if (product?.id === productId) {
+    }
+  }, [product?.id, productId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,7 +109,7 @@ export default function ProductDetailPage() {
         });
         const { data: variants, error: variantsError } = await supabase
           .from("product_variants")
-          .select("size,stock_quantity")
+          .select("id,size,color,stock_quantity")
           .eq("product_id", productId);
         if (variantsError) {
           console.error("Unable to load product size inventory:", variantsError.message);
@@ -108,6 +118,7 @@ export default function ProductDetailPage() {
           setSizeVariants(variants ?? []);
         }
         setSelectedSize(null);
+        setSelectedColor(null);
         setMainImage(0);
         setLoading(false);
 
@@ -170,48 +181,35 @@ export default function ProductDetailPage() {
         setCartError("There is not enough stock for the selected size.");
         return;
       }
+      if (sizeVariants.length > 0 && !selectedVariant) {
+        setCartError("Choose an available product option before adding this product.");
+        return;
+      }
+      if (selectedVariant && selectedVariant.stock_quantity < quantity) {
+        setCartError("There is not enough stock for the selected option.");
+        return;
+      }
       setCartError(null);
-      // Update local Zustand state for immediate UI feedback
-      addItem({
-        id: product.id,
-        product,
-        quantity,
-        selected_size: selectedSize,
-        vendor: {
-          id: product.vendor.id,
-          shop_name: product.vendor.shop_name,
-        },
-      });
-
-      // If user is logged in, sync to the database
-      if (user) {
-        try {
-          let existingQuery = supabase
-            .from("cart_items")
-            .select("id,quantity")
-            .eq("user_id", user.id)
-            .eq("product_id", product.id);
-          existingQuery = selectedSize
-            ? existingQuery.eq("selected_size", selectedSize)
-            : existingQuery.is("selected_size", null);
-          const { data: existingLine, error: findError } = await existingQuery.maybeSingle();
-          if (findError) throw findError;
-          const result = existingLine
-            ? await supabase.from("cart_items")
-                .update({ quantity: existingLine.quantity + quantity })
-                .eq("id", existingLine.id)
-            : await supabase.from("cart_items").insert({
-                user_id: user.id,
-                product_id: product.id,
-                vendor_id: product.vendor.id,
-                quantity,
-                selected_size: selectedSize,
-              });
-          if (result.error) throw result.error;
-        } catch (err) {
-          console.error('Failed to sync cart to database:', err);
-          setCartError("Added to this device's cart, but could not sync your account cart.");
-        }
+      try {
+        await addCartItem({
+          id: product.id,
+          product,
+          quantity,
+          variant_id: selectedVariant?.id ?? null,
+          needs_selection: false,
+          active_variant_count_at_add: activeVariants.length,
+          price_at_add: Number(product.price),
+          selected_size: selectedSize,
+          selected_color: selectedColor,
+          vendor: {
+            id: product.vendor.id,
+            shop_name: product.vendor.shop_name,
+          },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to add this product to your cart.";
+        setCartError(message);
+        toast.error(message);
       }
     }
   };
@@ -237,24 +235,35 @@ export default function ProductDetailPage() {
   }
 
   const discount = product.compare_price ? Math.round(((product.compare_price - product.price) / product.compare_price) * 100) : null;
-  const isOwner = user?.role === 'vendor' && user.id === product.vendor_id;
+  const isOwner = isOwnProduct(product.vendor_id, user?.id);
   const sizeConfig = getSizeConfig(product.category?.slug ?? product.category?.name);
   const requiresSize = product.size_type
     ? product.size_type !== "none"
     : sizeConfig.type !== "none";
   const availableSizes = Array.from(new Set([
     ...(product.available_sizes ?? []),
-    ...sizeVariants.map((variant) => variant.size).filter((size): size is string => Boolean(size)),
+    ...sizeVariants.filter((variant) => variant.stock_quantity > 0 && (!selectedColor || variant.color === selectedColor))
+      .map((variant) => variant.size).filter((size): size is string => Boolean(size)),
   ]));
+  const activeVariants = sizeVariants.filter((variant) => variant.stock_quantity > 0);
+  const availableColors = Array.from(new Set(
+    activeVariants.map((variant) => variant.color).filter((color): color is string => Boolean(color))
+  ));
+  const selectedVariant = activeVariants.find((variant) =>
+    (variant.size ?? null) === selectedSize &&
+    (variant.color ?? null) === selectedColor
+  ) ?? null;
   const sizeStockByValue = sizeVariants.reduce<Record<string, number>>((stock, variant) => {
     if (variant.size) stock[variant.size] = (stock[variant.size] ?? 0) + variant.stock_quantity;
     return stock;
   }, {});
-  const selectedSizeStock = selectedSize ? sizeStockByValue[selectedSize] ?? 0 : product.stock_quantity;
+  const selectedSizeStock = selectedVariant?.stock_quantity ??
+    (selectedSize ? sizeStockByValue[selectedSize] ?? 0 : product.stock_quantity);
   const sizeGuideKey = getSizeGuideKey(product.category?.slug ?? product.category?.name);
   const sizeGuide = sizeGuideKey ? SIZE_GUIDES[sizeGuideKey] : null;
   const canAddToCart = product.stock_quantity > 0 &&
-    (!requiresSize || (selectedSize !== null && selectedSizeStock >= quantity));
+    (!requiresSize || (selectedSize !== null && selectedSizeStock >= quantity)) &&
+    (sizeVariants.length === 0 || (selectedVariant !== null && selectedVariant.stock_quantity >= quantity));
 
   return (
     <div className="space-y-8">
@@ -268,9 +277,10 @@ export default function ProductDetailPage() {
               <Image
                 src={product.images[mainImage]}
                 alt={product.name}
-                fill // Removed duplicate className
+                fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 priority
+                className="object-cover"
               />
             ) : (
               <div className="flex h-full items-center justify-center text-muted">No Image</div>
@@ -299,7 +309,7 @@ export default function ProductDetailPage() {
                   <Image
                     src={image}
                     alt={`${product.name} ${idx + 1}`}
-                    fill // Removed duplicate className
+                    fill
                     sizes="80px"
                     className="object-cover"
                   />
@@ -318,10 +328,10 @@ export default function ProductDetailPage() {
 
           {/* Title and Vendor */}
           <div>
-            <h1 className="text-3xl font-bold text-text">{product.name}</h1>
+            <h1 className="break-words text-3xl font-bold text-text">{product.name}</h1>
             <Link
               href={`/vendor/${product.vendor.id}`}
-              className="mt-2 text-accent-text transition-colors duration-200 hover:text-accent-text hover:underline"
+              className="mt-2 block break-words text-accent-text transition-colors duration-200 hover:text-accent-text hover:underline"
             >
               {product.vendor.shop_name}
               {product.vendor.is_verified && <Badge variant="success" className="ml-2">Verified</Badge>}
@@ -345,12 +355,12 @@ export default function ProductDetailPage() {
 
           {/* Price */}
           <div className="space-y-2">
-            <div className="flex items-baseline gap-3">
-              <span className="font-display text-4xl font-bold text-accent-text">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-3">
+              <span className="min-w-0 break-words font-display text-3xl font-bold text-accent-text md:text-4xl">
                 {formatCurrency(product.price, currency.code, currency.locale)}
               </span>
               {product.compare_price && (
-                <span className="text-lg text-muted line-through">
+                <span className="shrink-0 text-base text-muted line-through md:text-lg">
                   {formatCurrency(product.compare_price, currency.code, currency.locale)}
                 </span>
               )}
@@ -383,7 +393,7 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          {requiresSize && (
+          {(requiresSize || sizeVariants.length > 0) && !isOwner && (
             <section className="space-y-3" aria-labelledby="product-size-label">
               <div className="flex items-center justify-between gap-3">
                 <h2 id="product-size-label" className="text-sm font-semibold text-text">{sizeConfig.label}</h2>
@@ -394,16 +404,41 @@ export default function ProductDetailPage() {
                   </button>
                 )}
               </div>
+              {availableColors.length > 0 && (
+                <div>
+                  <label htmlFor="product-color" className="mb-1 block text-sm font-medium text-text">Color</label>
+                  <select
+                    id="product-color"
+                    value={selectedColor ?? ""}
+                    onChange={(event) => {
+                      setSelectedColor(event.target.value || null);
+                      setSelectedSize(null);
+                      setCartError(null);
+                    }}
+                    className="min-h-11 w-full rounded-md border border-border bg-surface px-3 py-2 text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">Select a color</option>
+                    {availableColors.map((color) => <option key={color} value={color}>{color}</option>)}
+                  </select>
+                </div>
+              )}
               {availableSizes.length ? (
                 <div className="flex flex-wrap gap-2">
                   {availableSizes.map((size) => {
-                    const inStock = (sizeStockByValue[size] ?? 0) > 0;
+                    const sizeVariantsForSelection = activeVariants.filter((variant) =>
+                      variant.size === size && (!selectedColor || variant.color === selectedColor)
+                    );
+                    const inStock = sizeVariants.length > 0
+                      ? sizeVariantsForSelection.some((variant) => variant.stock_quantity > 0)
+                      : (sizeStockByValue[size] ?? 0) > 0;
                     return (
                       <button key={size} type="button" disabled={!inStock}
                         aria-pressed={selectedSize === size}
                         onClick={() => {
                           setSelectedSize(size);
-                          setQuantity((current) => Math.min(current, sizeStockByValue[size] ?? 1));
+                          const selectedStock = sizeVariantsForSelection.find((variant) => variant.stock_quantity > 0)?.stock_quantity
+                            ?? sizeStockByValue[size] ?? 1;
+                          setQuantity((current) => Math.min(current, selectedStock));
                           setCartError(null);
                         }}
                         className={`min-h-11 rounded-md border px-4 text-sm font-semibold transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
@@ -427,6 +462,9 @@ export default function ProductDetailPage() {
                 <p className="text-sm text-muted">
                   {getSizeLabel(product.category?.slug ?? product.category?.name, selectedSize)} · {selectedSizeStock} in stock
                 </p>
+              )}
+              {availableColors.length > 0 && !selectedColor && (
+                <p className="text-sm text-muted">Choose a color before adding this product.</p>
               )}
               {cartError && <p role="alert" className="text-sm text-danger-text">{cartError}</p>}
             </section>
@@ -473,44 +511,44 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {/* Secondary Buttons */}
-              <div className="flex gap-2 border-t border-border pt-4">
-                <MessageVendorButton
-                  vendorUserId={product.vendor.userId}
-                  vendorName={product.vendor.shop_name}
-                  className="flex-1"
-                />
-                <Button variant="outline" className="flex-1">
-                  <Heart className="mr-2 h-4 w-4" />
-                  Wishlist
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share
-                </Button>
-              </div>
             </>
           ) : (
-            <div className="rounded-lg border border-border bg-surface-raised p-6">
-              <p className="text-sm font-medium text-text">This is your product listing.</p>
-              <div className="mt-4">
-                <Link
-                  href={`/vendor/products/${product.id}/edit`}
-                  className="inline-flex w-full items-center justify-center rounded-md bg-accent px-4 py-3 text-sm font-semibold text-accent-on transition-colors duration-200 hover:brightness-95"
-                >
-                  Edit Product
-                </Link>
-              </div>
+            <div className="space-y-3 rounded-lg border border-border bg-surface-raised p-6">
+              <p className="text-sm text-muted">This is your listing.</p>
+              <Link
+                href={`/vendor/products/${product.id}/edit`}
+                className="inline-flex w-full items-center justify-center rounded-md bg-accent px-4 py-3 text-sm font-semibold text-accent-on transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+                Edit product
+              </Link>
             </div>
           )}
+          <div className="flex gap-2 border-t border-border pt-4">
+            {!isOwner && (
+              <MessageVendorButton
+                vendorUserId={product.vendor.userId}
+                vendorName={product.vendor.shop_name}
+                className="flex-1"
+              />
+            )}
+            <Button variant="outline" className="flex-1">
+              <Heart className="mr-2 h-4 w-4" />
+              Wishlist
+            </Button>
+            <Button variant="outline" className="flex-1">
+              <Share2 className="mr-2 h-4 w-4" />
+              Share
+            </Button>
+          </div>
         </div>
       </div>
 
       {sizeGuideOpen && sizeGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 p-4" role="presentation"
+        <div className="fixed inset-0 z-modal flex items-center justify-center bg-background/50 p-4" role="presentation"
           onClick={(event) => { if (event.target === event.currentTarget) setSizeGuideOpen(false); }}>
           <section role="dialog" aria-modal="true" aria-labelledby="size-guide-title"
-            className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-sm sm:p-7">
+            className="max-h-[85dvh] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-sm sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 id="size-guide-title" className="text-xl font-semibold text-text">{sizeGuide.title}</h2>
@@ -618,13 +656,14 @@ export default function ProductDetailPage() {
               </div>
               <div className="mt-6 border-t border-border pt-6">
                 {isOwner ? (
-                  <div className="space-y-4 rounded-lg border border-border bg-surface-raised p-4">
-                    <p className="text-sm font-medium text-text">This is your product listing.</p>
+                  <div className="space-y-3 rounded-lg border border-border bg-surface-raised p-4">
+                    <p className="text-sm text-muted">This is your listing.</p>
                     <Link
                       href={`/vendor/products/${product.id}/edit`}
-                      className="inline-flex w-full items-center justify-center rounded-md bg-accent px-5 py-2.5 text-sm text-accent-on transition-colors duration-200 hover:brightness-95"
+                      className="inline-flex w-full items-center justify-center rounded-md bg-accent px-5 py-2.5 text-sm text-accent-on transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      Edit Product
+                      <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Edit product
                     </Link>
                   </div>
                 ) : (

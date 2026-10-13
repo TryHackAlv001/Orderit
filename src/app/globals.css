@@ -35,6 +35,26 @@
   --danger: var(--primary);
   --danger-text: var(--foreground);
   --shadow-soft: 0 8px 24px rgb(17 17 17 / 14%);
+  --bottom-nav-height: 4rem;
+  --floating-back-size: 2.75rem;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-header-height: 4rem;
+  --mobile-announcement-height: 2.25rem;
+  --mobile-chrome-height: calc(var(--mobile-header-height) + var(--mobile-announcement-height) + var(--safe-top));
+  --z-content: 0;
+  --z-sticky: 10;
+  --z-bottom-nav: 20;
+  --z-floating-back: 30;
+  --z-toast: 40;
+  --z-overlay-menu: 50;
+  --z-modal: 60;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
   --home-header-background: rgb(var(--primary-rgb));
   --home-header-foreground: rgb(var(--background-rgb));
   --home-header-muted: rgb(var(--background-rgb) / 84%);
@@ -106,18 +126,48 @@
 html {
   min-height: 100%;
   width: 100%;
-  overflow-x: hidden;
 }
 
 body {
-  min-height: 100vh;
+  min-height: 100svh;
   width: 100%;
-  max-width: 100vw;
   margin: 0;
-  overflow-x: hidden;
   font-family: var(--font-sans), sans-serif;
   background-color: var(--bg);
   color: var(--text);
+}
+
+@layer components {
+  .page-container {
+    @apply mx-auto flex w-full max-w-7xl min-w-0 flex-col;
+    padding-inline: var(--space-4);
+  }
+
+  .page-content {
+    @apply min-w-0;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --bottom-nav-height: 0px;
+  }
+
+  .page-container {
+    padding-inline: var(--space-6);
+  }
+}
+
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+.app-toaster > div {
+  z-index: var(--z-toast) !important;
 }
 
 h1,
@@ -165,6 +215,16 @@ textarea {
   animation: search-placeholder-cubic-out 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes cart-add-bump {
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+.cart-add-pulse {
+  animation: cart-add-bump 280ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   button,
   a,
@@ -177,7 +237,8 @@ textarea {
   .transition-shadow,
   .transition-transform,
   .transition-all,
-  .search-placeholder-enter {
+  .search-placeholder-enter,
+  .cart-add-pulse {
     transition-duration: 0ms;
     animation: none;
   }

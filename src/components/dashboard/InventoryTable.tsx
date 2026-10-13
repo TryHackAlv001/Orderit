@@ -5,7 +5,7 @@ export function InventoryTable() {
   return (
     <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <div>
+        <div className="min-w-0">
           <h3 className="text-lg font-semibold">Inventory Overview</h3>
           <p className="mt-2 text-sm text-muted">Quick view of your stock levels.</p>
         </div>

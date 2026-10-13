@@ -162,7 +162,7 @@ export default function VendorOrderDetailPage() {
 
   if (error || !order) {
     return (
-      <div className="px-4 py-6">
+      <div className="min-w-0 px-0 py-6 md:px-4">
         <div className="rounded-lg border border-danger bg-danger/10 p-10 text-center text-danger-text">
           <p className="text-lg font-semibold">Unable to load order details.</p>
           <p className="mt-2 text-sm">Please return to the order list and try again.</p>
@@ -183,7 +183,7 @@ export default function VendorOrderDetailPage() {
     : order.delivery_address?.address || JSON.stringify(order.delivery_address, null, 2);
 
   return (
-    <div className="space-y-6 px-4 py-6">
+    <div className="min-w-0 space-y-6 px-0 py-6 md:px-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold text-text">Order Details</h1>
@@ -200,11 +200,11 @@ export default function VendorOrderDetailPage() {
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
         <div className="space-y-6">
-          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <section className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-muted">Order ID</p>
-                <p className="mt-2 text-base text-text">{order.id}</p>
+                <p className="mt-2 break-all text-base text-text">{order.id}</p>
               </div>
               <span className={`inline-flex rounded-full px-3 py-2 text-sm font-semibold ${statusColor(order.status)}`}>
                 {statusLabel(order.status)}
@@ -213,7 +213,7 @@ export default function VendorOrderDetailPage() {
             <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <p className="text-sm text-muted">Buyer</p>
-                <p className="mt-2 text-text">{order.buyer_name}</p>
+                <p className="mt-2 break-words text-text">{order.buyer_name}</p>
                 {buyerDetailsError && <p role="alert" className="mt-1 text-xs text-danger-text">{buyerDetailsError}</p>}
               </div>
               <div>
@@ -222,14 +222,14 @@ export default function VendorOrderDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-muted">Delivery address</p>
-                <p className="mt-2 whitespace-pre-wrap text-text">{address}</p>
+                <p className="mt-2 break-words whitespace-pre-wrap text-text">{address}</p>
               </div>
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+          <section className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-xl font-semibold text-text">Items</h2>
-            <div className="mt-4 overflow-x-auto">
+            <div className="mt-4 w-full min-w-0 overflow-x-auto">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-bg text-text">
                   <tr>
@@ -255,17 +255,17 @@ export default function VendorOrderDetailPage() {
               </table>
             </div>
             <div className="mt-6 space-y-2 rounded-lg border border-border bg-bg p-5 text-sm text-text">
-              <div className="flex items-center justify-between">
-                <span>Subtotal</span>
-                <span className="font-display">₦{order.subtotal.toLocaleString()}</span>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                <span className="min-w-0">Subtotal</span>
+                <span className="min-w-0 break-words text-right font-display">₦{order.subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span>Delivery fee</span>
-                <span className="font-display">₦{order.delivery_fee.toLocaleString()}</span>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                <span className="min-w-0">Delivery fee</span>
+                <span className="min-w-0 break-words text-right font-display">₦{order.delivery_fee.toLocaleString()}</span>
               </div>
-              <div className="flex items-center justify-between text-text">
-                <span className="font-semibold">Total</span>
-                <span className="font-display font-semibold">₦{order.total.toLocaleString()}</span>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-text">
+                <span className="min-w-0 font-semibold">Total</span>
+                <span className="min-w-0 break-words text-right font-display font-semibold">₦{order.total.toLocaleString()}</span>
               </div>
             </div>
           </section>
@@ -274,7 +274,7 @@ export default function VendorOrderDetailPage() {
         </div>
 
         <div className="space-y-6">
-          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+          <section className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text">Order actions</h2>
             <p className="mt-2 text-sm text-muted">Update this order as it progresses through your kitchen and delivery.</p>
             <div className="mt-6">
@@ -287,7 +287,7 @@ export default function VendorOrderDetailPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+          <section className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text">Assign Dispatch Rider</h2>
             <p className="mt-2 text-sm text-muted">Provide the rider's name and phone for this order.</p>
             <div className="mt-4 space-y-3">

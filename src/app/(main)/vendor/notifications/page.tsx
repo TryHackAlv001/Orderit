@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Bell, Check } from 'lucide-react';
+import { getMessageNotificationsEnabled } from '@/lib/user-preferences';
 
 type Notification = {
   id: string;
@@ -26,14 +27,24 @@ export default function VendorNotificationsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      const { data } = await supabase
+      const [{ data, error }, messagesEnabled] = await Promise.all([
+        supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(50),
+        getMessageNotificationsEnabled(user.id),
+      ]);
+      if (error) {
+        console.error('Unable to load vendor notifications:', error.message);
+        setLoading(false);
+        return;
+      }
 
-      setNotifications(data ?? []);
+      setNotifications((data ?? []).filter(
+        (notification: Notification) => messagesEnabled || notification.type !== 'message'
+      ));
       setLoading(false);
     };
     load();
@@ -54,7 +65,7 @@ export default function VendorNotificationsPage() {
   );
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="mx-auto w-full max-w-2xl min-w-0 py-8 md:px-4">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-text flex items-center gap-2">
           <Bell className="h-6 w-6 text-accent-text" />

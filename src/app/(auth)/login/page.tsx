@@ -32,9 +32,9 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-bg">
+    <main className="min-h-svh bg-bg">
       <Toaster position="top-right" toastOptions={{ style: { background: "var(--surface-raised)", color: "var(--foreground)", border: "1px solid var(--border)", boxShadow: "var(--shadow-soft)" }, success: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } }, error: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } } }} />
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-12 lg:px-8">
+      <div className="page-container min-h-svh justify-center py-12">
         <div className="mb-10 max-w-2xl rounded-lg border border-border bg-surface p-10 shadow-sm sm:p-12">
           <div className="mb-10 flex flex-col gap-3 text-center">
             <p className="inline-flex rounded-md bg-accent/10 px-4 py-1 text-sm font-semibold uppercase tracking-[0.3em] text-text">

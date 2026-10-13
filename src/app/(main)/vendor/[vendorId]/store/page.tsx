@@ -218,7 +218,7 @@ export default async function VendorStorePage({ params }: VendorStorePageProps) 
   }));
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-6 sm:space-y-8">
       {/* Storefront Header */}
       <StorefrontHeader vendor={vendor} isOwner={isOwner} />
 
@@ -252,13 +252,13 @@ export default async function VendorStorePage({ params }: VendorStorePageProps) 
         {/* Products Tab */}
         <div className="space-y-6">
           {/* Search and Filter */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="relative min-w-0 flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
                 <Input
                   placeholder="Search products..."
-                  className="w-80 pl-10"
+                  className="w-full min-w-0 pl-10 sm:w-80"
                 />
               </div>
               <Button variant="outline">

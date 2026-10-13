@@ -145,7 +145,7 @@ export default function VendorProductsPage() {
   }
 
   return (
-    <div className="space-y-6 px-4 py-6">
+    <div className="min-w-0 space-y-6 px-0 py-6 md:px-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold text-text">Your Products</h1>
@@ -198,7 +198,7 @@ export default function VendorProductsPage() {
               {filteredProducts.map((product) => (
                 <tr key={product.id} className="border-t border-border hover:bg-bg">
                   <td className="px-4 py-4 align-top">
-                    <div className="relative h-16 w-16 overflow-hidden rounded-lg bg-surface-raised">
+                    <div className="relative aspect-square h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-surface-raised">
                       {product.images?.[0] ? (
                         <Image
                           src={product.images[0]}
@@ -213,8 +213,8 @@ export default function VendorProductsPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-4 align-top text-text">{product.name}</td>
-                  <td className="px-4 py-4 align-top text-muted">{product.category?.name ?? "Uncategorized"}</td>
+                  <td className="max-w-64 px-4 py-4 align-top text-text">{product.name}</td>
+                  <td className="max-w-64 px-4 py-4 align-top text-muted">{product.category?.name ?? "Uncategorized"}</td>
                   <td className="px-4 py-4 align-top text-muted">{product.brand === "Unspecified" ? "Missing" : product.brand}</td>
                   <td className="px-4 py-4 align-top font-display text-text">₦{product.price.toLocaleString()}</td>
                   <td className="px-4 py-4 align-top text-text">{product.stock_quantity}</td>
@@ -233,14 +233,14 @@ export default function VendorProductsPage() {
                     <button
                       type="button"
                       onClick={() => router.push(`/vendor/products/${product.id}/edit`)}
-                      className="rounded-full border border-border bg-surface px-3 py-2 text-xs font-semibold text-text transition hover:bg-bg"
+                      className="min-h-11 rounded-full border border-border bg-surface px-3 py-2 text-xs font-semibold text-text transition hover:bg-bg"
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(product.id)}
-                      className="rounded-full border border-danger bg-danger/10 px-3 py-2 text-xs font-semibold text-danger-text transition hover:bg-danger/10"
+                      className="min-h-11 rounded-full border border-danger bg-danger/10 px-3 py-2 text-xs font-semibold text-danger-text transition hover:bg-danger/10"
                     >
                       Delete
                     </button>

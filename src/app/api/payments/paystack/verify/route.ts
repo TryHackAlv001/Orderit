@@ -1,35 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { invokePaystackEdgeFunction } from "@/lib/paystack-edge";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const reference = searchParams.get("reference");
-
-    if (!reference)
+    const reference = new URL(request.url).searchParams.get("reference");
+    if (!reference) {
       return NextResponse.json({ error: "Missing reference" }, { status: 400 });
-
-    const paystackRes = await fetch(
-      `https://api.paystack.co/transaction/verify/${reference}`,
-      { headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` } }
-    );
-
-    const paystackData = await paystackRes.json();
-
-    if (!paystackData.status || paystackData.data?.status !== "success")
-      return NextResponse.json({ success: false, error: "Payment not successful" }, { status: 400 });
-
-    const orderId = paystackData.data.metadata?.orderId;
-    if (!orderId)
-      return NextResponse.json({ success: false, error: "Order ID not found" }, { status: 400 });
+    }
 
     const supabase = createSupabaseServerClient();
-    await supabase
-      .from("orders")
-      .update({ payment_status: "paid", status: "confirmed" })
-      .eq("id", orderId);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ success: false, error: "Unauthenticated" }, { status: 401 });
+    }
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      return NextResponse.json({ success: false, error: "Unauthenticated" }, { status: 401 });
+    }
 
-    return NextResponse.json({ success: true, orderId });
+    const response = await invokePaystackEdgeFunction(session.access_token, {
+      action: "verify",
+      reference,
+    });
+    const result: unknown = await response.json();
+    return NextResponse.json(result, { status: response.status });
   } catch (error) {
     console.error("Paystack verify error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

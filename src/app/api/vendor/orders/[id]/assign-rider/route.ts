@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdminClient } from "@/lib/supabase-admin";
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -20,7 +21,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     if (name) updates.dispatch_rider_name = name;
     if (phone) updates.dispatch_rider_phone = phone;
 
-    const { data: updatedOrder, error } = await supabase
+    const { data: updatedOrder, error } = await supabaseAdminClient
       .from("orders")
       .update(updates)
       .eq("id", params.id)

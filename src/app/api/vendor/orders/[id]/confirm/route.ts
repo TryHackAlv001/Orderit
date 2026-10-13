@@ -27,7 +27,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id,buyer_id,vendor_id,status")
+    .select("id,buyer_id,vendor_id,status,payment_status")
     .eq("id", params.id)
     .eq("vendor_id", vendorProfileId)
     .single();
@@ -40,6 +40,9 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   if (order.status !== "pending") {
     return NextResponse.json({ error: "Only pending orders can be confirmed" }, { status: 400 });
+  }
+  if (order.payment_status !== "paid") {
+    return NextResponse.json({ error: "An order must be paid before it can be confirmed" }, { status: 409 });
   }
 
   // Ensure update is constrained to both id and vendor_id for safety

@@ -92,7 +92,7 @@ export async function initializePayment(
         tx_ref: txRef,
         amount,
         currency: "NGN",
-        redirect_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/checkout/verify?gateway=flutterwave&transaction_id=${txRef}`,
+        redirect_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/checkout/verify?gateway=flutterwave&orderId=${encodeURIComponent(typeof meta?.orderId === "string" ? meta.orderId : "")}`,
         meta: meta || {},
         customer: {
           email,

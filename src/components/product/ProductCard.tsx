@@ -1,24 +1,29 @@
 'use client';
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { CirclePlus, ShieldCheck, X } from "lucide-react";
+import Image from "next/image";
+import { Check, Pencil, ShoppingCart, ShieldCheck } from "lucide-react";
 import { RatingSummary } from "./RatingSummary";
-import { useCartStore } from "@/store/cartStore";
 import { formatCurrency, getCurrencyOption } from "@/constants";
 import { useCurrencyStore } from "@/store/currencyStore";
+import { useAuthStore } from "@/store/authStore";
+import { useAddToCart } from "@/hooks/useAddToCart";
+import { isOwnProduct } from "@/lib/is-own-product";
 import type { Product } from "@/types";
 
 type MarketplaceProduct = Product & {
   short_description?: string | null;
   vendor: { id?: string; full_name: string; logo_url?: string; is_verified?: boolean };
-  variants?: { color: string | null; size: string | null; stock_quantity: number }[];
+  variants?: { id: string; color: string | null; size: string | null; stock_quantity: number }[];
   variantsLoaded?: boolean;
 };
 
 interface ProductCardProps {
   product: MarketplaceProduct;
-  variant?: "default" | "home";
+  variant?: "default" | "home" | "masonry";
+  imagePriority?: boolean;
+  imageFetchPriority?: "high" | "low" | "auto";
 }
 
 function getCardDescription(product: MarketplaceProduct) {
@@ -27,49 +32,81 @@ function getCardDescription(product: MarketplaceProduct) {
   return (firstSentence ?? description).trim();
 }
 
-export function ProductCard({ product, variant = "default" }: ProductCardProps) {
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [selectedSize, setSelectedSize] = useState("");
-  const [selectedColor, setSelectedColor] = useState("");
+export function ProductCard({
+  product,
+  variant = "default",
+  imagePriority = false,
+  imageFetchPriority,
+}: ProductCardProps) {
   const [added, setAdded] = useState(false);
-  const addItem = useCartStore((state) => state.addItem);
+  const [imageAspectRatio, setImageAspectRatio] = useState(3 / 4);
+  const lastAddAt = useRef(0);
+  const user = useAuthStore((state) => state.user);
+  const addCartItem = useAddToCart();
   const currency = getCurrencyOption(useCurrencyStore((state) => state.currency));
+  const variants = product.variants ?? [];
+  const activeVariants = variants.filter((productVariant) => productVariant.stock_quantity > 0);
   const variantDataKnown = product.variantsLoaded !== false;
-  const stockedVariants = product.variants?.filter((variant) => variant.stock_quantity > 0) ?? [];
-  const availableSizes = Array.from(new Set(stockedVariants.map((variant) => variant.size).filter((size): size is string => Boolean(size))));
-  const colors = Array.from(new Set(stockedVariants.map((variant) => variant.color).filter((color): color is string => Boolean(color))));
-  const hasSizeOptions = availableSizes.length > 0 || (!product.variants?.length && Boolean(product.available_sizes?.length));
-  const requiresVariant = !variantDataKnown || colors.length > 0 || stockedVariants.length > 1 ||
-    hasSizeOptions || product.size_type === "single" || product.size_type === "multi";
-  const isOutOfStock = product.stock_quantity <= 0;
+  const isOutOfStock = !variantDataKnown || (variants.length > 0
+    ? activeVariants.length === 0
+    : product.stock_quantity <= 0);
   const reviewCount = Number(product.review_count) || 0;
   const rating = Number(product.rating) || 0;
   const description = getCardDescription(product);
+  const isOwnListing = isOwnProduct(product.vendor_id, user?.id);
 
-  const addToCart = (size: string | null) => {
-    addItem({
+  const addToCart = async () => {
+    if (isOwnListing || isOutOfStock) return;
+    const now = Date.now();
+    if (now - lastAddAt.current < 300) return;
+    lastAddAt.current = now;
+    const needsSelection = activeVariants.length > 1;
+    const selectedVariant = activeVariants.length === 1 ? activeVariants[0] : null;
+    const succeeded = await addCartItem({
       id: product.id,
       product,
       quantity: 1,
-      selected_size: size,
+      variant_id: selectedVariant?.id ?? null,
+      needs_selection: needsSelection,
+      active_variant_count_at_add: activeVariants.length,
+      price_at_add: Number(product.price),
+      selected_size: selectedVariant?.size ?? null,
+      selected_color: selectedVariant?.color ?? null,
       vendor: {
-        id: product.vendor_id,
+        id: product.vendor.id ?? product.vendor_id,
         shop_name: product.vendor.full_name || "Vendor Store",
       },
     });
-    setAdded(true);
-    window.setTimeout(() => setAdded(false), 1200);
-    setPickerOpen(false);
+    if (succeeded) {
+      setAdded(true);
+      window.setTimeout(() => setAdded(false), 800);
+    }
   };
 
   return (
-    <article className="group relative min-w-0">
+    <article data-product-id={product.id} className="group relative min-w-0">
       <Link href={`/product/${product.id}`} className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <div className={`aspect-square overflow-hidden ${variant === "home" ? "rounded-md" : "rounded-lg"} bg-surface-raised`}>
+        <div
+          className={`relative overflow-hidden ${variant === "masonry" ? "aspect-[3/4] md:aspect-auto" : "aspect-square"} ${variant === "home" ? "rounded-md" : "rounded-lg"} bg-surface-raised`}
+          style={variant === "masonry" ? { aspectRatio: imageAspectRatio } : undefined}
+        >
           {product.images?.[0] ? (
-            <img
+            <Image
               src={product.images[0]}
               alt={product.name}
+              fill
+              priority={imagePriority}
+              fetchPriority={imageFetchPriority}
+              sizes={variant === "masonry"
+                ? "(max-width: 767px) 50vw, (max-width: 1055px) 50vw, 512px"
+                : "(max-width: 767px) 50vw, (max-width: 1023px) 33vw, (max-width: 1535px) 25vw, 20vw"}
+              onLoad={variant === "masonry" ? (event) => {
+                if (!window.matchMedia("(min-width: 768px)").matches) return;
+                const image = event.currentTarget;
+                if (image.naturalHeight > 0) {
+                  setImageAspectRatio(Math.min(4 / 3, Math.max(3 / 4, image.naturalWidth / image.naturalHeight)));
+                }
+              } : undefined}
               className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
             />
           ) : (
@@ -81,9 +118,20 @@ export function ProductCard({ product, variant = "default" }: ProductCardProps) 
         </p>
       </Link>
 
+      {variant === "masonry" && reviewCount > 0 && (
+        <Link href={`/product/${product.id}`} className="mt-1 block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <RatingSummary rating={rating} reviewCount={reviewCount} size="sm" showCount />
+        </Link>
+      )}
+      {variant === "masonry" && product.brand?.trim() && product.brand.trim().toLowerCase() !== "unspecified" && (
+        <span className="mt-1 inline-flex max-w-full truncate rounded-full bg-surface-raised px-2 py-0.5 text-xs text-muted">
+          {product.brand.trim()}
+        </span>
+      )}
+
       <div className="mt-1 flex min-w-0 items-center justify-between gap-2">
-        <Link href={`/product/${product.id}`} className="flex min-w-0 flex-wrap items-baseline gap-x-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <span className="text-base font-bold text-text">
+        <Link href={`/product/${product.id}`} className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 overflow-hidden rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span className="min-w-0 truncate whitespace-nowrap text-base font-bold text-text">
             {formatCurrency(Number(product.price), currency.code, currency.locale)}
           </span>
           {product.compare_price && Number(product.compare_price) > Number(product.price) && (
@@ -93,88 +141,32 @@ export function ProductCard({ product, variant = "default" }: ProductCardProps) 
           )}
         </Link>
         <div className="relative shrink-0">
-          <button
-            type="button"
-            disabled={isOutOfStock}
-            aria-label={requiresVariant ? `Choose options for ${product.name}` : `Add ${product.name} to cart`}
-            aria-expanded={requiresVariant ? pickerOpen : undefined}
-            onClick={() => requiresVariant ? setPickerOpen((open) => !open) : addToCart(null)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-text hover:border-accent hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {pickerOpen ? <X className="h-4 w-4" /> : <CirclePlus className="h-5 w-5" />}
-          </button>
-          {requiresVariant && pickerOpen && (
-            <div role="dialog" aria-label={`Choose options for ${product.name}`} className="absolute bottom-full right-0 z-30 mb-2 w-64 rounded-xl border border-border bg-surface p-4 shadow-lg">
-              <p className="mb-3 text-sm font-semibold text-text">Choose an option</p>
-              {!variantDataKnown ? (
-                <p className="text-sm text-muted">
-                  Options could not be loaded.{" "}
-                  <Link href={`/product/${product.id}`} className="font-semibold text-accent-text underline">View product</Link>
-                </p>
-              ) : colors.length > 0 ? (
-                <>
-                  <label htmlFor={`color-${product.id}`} className="sr-only">Color</label>
-                  <select
-                    id={`color-${product.id}`}
-                    value={selectedColor}
-                    onChange={(event) => setSelectedColor(event.target.value)}
-                    className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">Select a color</option>
-                    {colors.map((color) => <option key={color} value={color}>{color}</option>)}
-                  </select>
-                  {availableSizes.length > 0 && (
-                    <>
-                      <label htmlFor={`size-${product.id}`} className="sr-only">Size</label>
-                      <select
-                        id={`size-${product.id}`}
-                        value={selectedSize}
-                        onChange={(event) => setSelectedSize(event.target.value)}
-                        className="mt-2 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-ring"
-                      >
-                        <option value="">Select a size</option>
-                        {availableSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-                      </select>
-                    </>
-                  )}
-                  <p className="mt-3 text-xs text-muted">
-                    Color choices can&apos;t be saved to cart or checkout yet.
-                  </p>
-                </>
-              ) : hasSizeOptions ? (
-                <>
-                  <label htmlFor={`size-${product.id}`} className="sr-only">Size</label>
-                  <select
-                    id={`size-${product.id}`}
-                    value={selectedSize}
-                    onChange={(event) => setSelectedSize(event.target.value)}
-                    className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">Select a size</option>
-                    {availableSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-                    {availableSizes.length === 0 && product.available_sizes?.map((size) => <option key={size} value={size}>{size}</option>)}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!selectedSize || isOutOfStock}
-                    onClick={() => addToCart(selectedSize)}
-                    className="mt-3 w-full rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-on hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    Add to cart
-                  </button>
-                </>
-              ) : (
-                <p className="text-sm text-muted">
-                  Variant options aren&apos;t available here.{" "}
-                  <Link href={`/product/${product.id}`} className="font-semibold text-accent-text underline">View product</Link>
-                </p>
-              )}
-            </div>
+          {isOwnListing ? (
+            <Link
+              href={`/vendor/products/${product.id}/edit`}
+              title="Edit your product"
+              aria-label="Edit product"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-text hover:border-accent hover:text-accent-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Pencil className="h-5 w-5" aria-hidden="true" />
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled={isOutOfStock}
+              aria-label="Add to cart"
+              onClick={() => void addToCart()}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-text hover:border-accent hover:text-accent-text disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {added
+                ? <Check className="h-5 w-5" aria-hidden="true" />
+                : <ShoppingCart className="h-5 w-5" aria-hidden="true" />}
+            </button>
           )}
         </div>
       </div>
 
-      {variant !== "home" && (
+      {variant === "default" && (
         <>
           <Link href={`/product/${product.id}`} className="block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {!isOutOfStock && product.stock_quantity <= 10 && (
@@ -208,7 +200,7 @@ export function ProductCard({ product, variant = "default" }: ProductCardProps) 
           )}
         </>
       )}
-        {added && <span className="sr-only" role="status">Added {product.name} to cart</span>}
+        <span className="sr-only" aria-live="polite">{added ? "Added to cart" : ""}</span>
     </article>
   );
 }

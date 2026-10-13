@@ -16,7 +16,7 @@ export default async function OrderDetailPage({ params }: { params: { orderId: s
     .eq("buyer_id", userId)
     .single();
 
-  if (error || !order) return <div className="p-6">Order not found.</div>;
+  if (error || !order) return <div className="min-w-0 p-4 sm:p-6">Order not found.</div>;
 
   const [
     { data: returnWindow, error: returnPolicyError },
@@ -40,19 +40,19 @@ export default async function OrderDetailPage({ params }: { params: { orderId: s
     : order.delivery_address?.address || JSON.stringify(order.delivery_address, null, 2);
 
   return (
-    <div className="space-y-6 px-4 py-6">
-      <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+    <div className="min-w-0 space-y-6 px-0 pb-6 pt-0 md:px-4">
+      <div className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold text-text">Order Details</h1>
-            <p className="mt-2 text-sm text-muted">Order ID: {order.id}</p>
+            <p className="mt-2 break-all text-sm text-muted">Order ID: {order.id}</p>
           </div>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+          <div className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-muted">Order Status</p>
@@ -67,9 +67,9 @@ export default async function OrderDetailPage({ params }: { params: { orderId: s
             </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+          <div className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-xl font-semibold text-text">Items</h2>
-            <div className="mt-4 overflow-x-auto">
+            <div className="mt-4 w-full min-w-0 overflow-x-auto">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-bg text-text">
                   <tr>
@@ -95,33 +95,33 @@ export default async function OrderDetailPage({ params }: { params: { orderId: s
               </table>
             </div>
             <div className="mt-6 space-y-2 rounded-lg border border-border bg-bg p-5 text-sm text-text">
-              <div className="flex items-center justify-between">
-                <span>Subtotal</span>
-                <span className="font-display">₦{Number(order.subtotal).toLocaleString()}</span>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                <span className="min-w-0">Subtotal</span>
+                <span className="min-w-0 break-words text-right font-display">₦{Number(order.subtotal).toLocaleString()}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span>Delivery fee</span>
-                <span className="font-display">₦{Number(order.delivery_fee).toLocaleString()}</span>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                <span className="min-w-0">Delivery fee</span>
+                <span className="min-w-0 break-words text-right font-display">₦{Number(order.delivery_fee).toLocaleString()}</span>
               </div>
-              <div className="flex items-center justify-between text-text">
-                <span className="font-semibold">Total</span>
-                <span className="font-display font-semibold">₦{Number(order.total).toLocaleString()}</span>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-text">
+                <span className="min-w-0 font-semibold">Total</span>
+                <span className="min-w-0 break-words text-right font-display font-semibold">₦{Number(order.total).toLocaleString()}</span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+          <div className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text">Delivery Address</h2>
-            <p className="mt-4 whitespace-pre-wrap text-text">{address}</p>
+            <p className="mt-4 break-words whitespace-pre-wrap text-text">{address}</p>
           </div>
 
           {order.dispatch_rider_name && (
-            <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
+            <div className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
               <h3 className="text-lg font-semibold text-text">Your Delivery Rider</h3>
               <div className="mt-4 space-y-3 text-sm text-text">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">Name</span>
-                  <span>{order.dispatch_rider_name}</span>
+                  <span className="min-w-0 break-words text-right">{order.dispatch_rider_name}</span>
                 </div>
                 {order.dispatch_rider_phone && (
                   <div className="flex items-center justify-between">

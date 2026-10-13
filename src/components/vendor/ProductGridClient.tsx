@@ -25,11 +25,11 @@ export function ProductGridClient({ products, initialViewPublic = true }: Produc
   }
 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
       {visible.map((product) => (
         <div key={product.id} className="relative">
           {!product.is_active && (
-            <div className="absolute right-3 top-3 z-10 rounded-full bg-warning/10 px-2 py-1 text-xs font-semibold text-text">
+            <div className="absolute right-3 top-3 z-sticky rounded-full bg-warning/10 px-2 py-1 text-xs font-semibold text-text">
               Draft
             </div>
           )}

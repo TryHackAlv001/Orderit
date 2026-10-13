@@ -199,7 +199,7 @@ export default function VendorProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-12">
+      <div className="flex min-h-svh items-center justify-center bg-bg px-0 py-12 md:px-4">
         <div className="rounded-lg border border-border bg-surface p-10 text-center shadow-sm">
           <Loader2 className="mx-auto h-10 w-10 animate-spin text-accent-text" />
           <p className="mt-4 text-sm font-medium text-text">Loading your profile…</p>
@@ -209,9 +209,9 @@ export default function VendorProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg py-10">
+    <div className="min-h-svh bg-bg py-10">
       <Toaster position="top-right" toastOptions={{ style: { background: "var(--surface-raised)", color: "var(--foreground)", border: "1px solid var(--border)", boxShadow: "var(--shadow-soft)" }, success: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } }, error: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } } }} />
-      <div className="mx-auto w-full max-w-6xl px-4">
+      <div className="mx-auto w-full max-w-6xl px-0 md:px-4">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent-text">Vendor Account</p>

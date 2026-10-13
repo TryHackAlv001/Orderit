@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Home, Menu, Package, Search, ShoppingBag, ShoppingCart, User, X } from "lucide-react";
+import { Home, LayoutGrid, Menu, Package, ShoppingBag, ShoppingCart, User, X } from "lucide-react";
 
 interface BottomTab {
   icon: typeof Home;
@@ -17,6 +17,7 @@ interface BottomTab {
 export function BottomNav() {
   const { user, profile } = useAuthStore();
   const cartCount = useCartStore((state) => state.items.reduce((count, item) => count + item.quantity, 0));
+  const cartPulseVersion = useCartStore((state) => state.pulseVersion);
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -40,7 +41,7 @@ export function BottomNav() {
   const isVendor = user?.role === "vendor";
   const buyerTabs: BottomTab[] = [
     { icon: Home, label: "Home", href: "/marketplace" },
-    { icon: Search, label: "Search", href: "/marketplace/search" },
+    { icon: LayoutGrid, label: "Categories", href: "/categories" },
     { icon: User, label: "You", href: user ? "/buyer/profile" : "/login" },
     { icon: ShoppingCart, label: "Cart", href: "/cart", badge: cartCount },
   ];
@@ -49,10 +50,11 @@ export function BottomNav() {
     { icon: Package, label: "Products", href: "/vendor/products" },
     { icon: ShoppingBag, label: "Orders", href: "/vendor/orders" },
     { icon: ShoppingBag, label: "My Store", href: profile?.id ? `/vendor/${profile.id}/store` : "#" },
+    { icon: ShoppingCart, label: "Cart", href: "/cart", badge: cartCount },
   ];
   const guestTabs: BottomTab[] = [
     { icon: Home, label: "Home", href: "/marketplace" },
-    { icon: Search, label: "Search", href: "/marketplace/search" },
+    { icon: LayoutGrid, label: "Categories", href: "/categories" },
     { icon: User, label: "You", href: "/login" },
     { icon: ShoppingCart, label: "Cart", href: "/cart", badge: cartCount },
   ];
@@ -62,7 +64,6 @@ export function BottomNav() {
     if (href === "/marketplace") {
       return pathname?.startsWith("/marketplace") && !pathname.startsWith("/marketplace/search");
     }
-    if (href === "/marketplace/search") return pathname?.startsWith("/marketplace/search");
     if (href === "/login") return pathname === "/login";
     if (href === "#") return false;
     return pathname === href || pathname?.startsWith(`${href}/`);
@@ -71,9 +72,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Mobile navigation"
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface pb-[max(env(safe-area-inset-bottom),0px)] md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-bottom-nav border-t border-border bg-surface pb-[var(--safe-bottom)] md:hidden"
     >
-      <div className="flex min-h-16 items-stretch">
+      <div className="flex min-h-[var(--bottom-nav-height)] items-stretch">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = isActive(tab.href);
@@ -82,12 +83,12 @@ export function BottomNav() {
               key={tab.label}
               href={tab.href}
               aria-current={active ? "page" : undefined}
-              className={`relative flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1 text-xs font-medium transition-colors ${
+              className={`relative flex min-h-[var(--bottom-nav-height)] min-w-0 flex-1 flex-col items-center justify-center gap-1 ${isVendor ? "px-0.5 text-[10px] sm:text-xs" : "px-1 text-xs"} py-1 font-medium transition-colors ${
                 active ? "text-accent-text" : "text-muted hover:text-text"
               }`}
             >
-              <span className="relative">
-                <Icon className="h-6 w-6" />
+              <span key={tab.badge !== undefined ? cartPulseVersion : tab.label} className={`relative ${tab.badge !== undefined ? "cart-add-pulse" : ""}`}>
+                <Icon className={isVendor ? "h-5 w-5 sm:h-6 sm:w-6" : "h-6 w-6"} />
                 {tab.badge !== undefined && tab.badge > 0 && (
                   <span className="absolute -right-2 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[0.65rem] font-bold text-accent-on">
                     {tab.badge > 99 ? "99+" : tab.badge}
@@ -105,7 +106,7 @@ export function BottomNav() {
           aria-controls="navbar-mobile-navigation-menu"
           aria-expanded={menuOpen}
           onClick={() => window.dispatchEvent(new Event("navbar-navigation-toggle"))}
-          className={`relative flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1 text-xs font-medium transition-colors ${
+          className={`relative flex min-h-[var(--bottom-nav-height)] min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-1 text-xs font-medium transition-colors ${
             menuOpen ? "text-accent-text" : "text-muted hover:text-text"
           }`}
         >

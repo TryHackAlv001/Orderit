@@ -62,7 +62,7 @@ export interface Product {
 }
 
 export interface ProductVariant {
-  id?: string;
+  id: string;
   product_id?: string;
   color: string | null;
   size: string | null;
@@ -177,9 +177,16 @@ export interface Notification {
 
 export interface CartItem {
   id: string;
+  database_id?: string;
   product: Product;
   quantity: number;
+  variant_id?: string | null;
+  needs_selection?: boolean;
+  active_variant_count_at_add?: number;
+  price_at_add?: number;
   selected_size?: string | null;
+  selected_color?: string | null;
+  synced_user_id?: string | null;
   vendor: {
     id: string;
     shop_name: string;

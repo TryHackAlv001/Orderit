@@ -21,7 +21,13 @@ export function ImageUpload({ value, onChange, maxImages = 5, pathPrefix }: Imag
 
   const uploadFile = useCallback(async (file: File): Promise<string> => {
     if (file.size > 5 * 1024 * 1024) throw new Error("File size exceeds 5MB");
-    const ext = file.name.split(".").pop();
+    const extensions: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+    };
+    const ext = extensions[file.type];
+    if (!ext) throw new Error("Only JPG, PNG, and WEBP images are allowed");
     const prefix = pathPrefix ?? 'products/';
     const fileName = `${prefix}${Date.now()}-${Math.random()
       .toString(36)
@@ -40,10 +46,19 @@ export function ImageUpload({ value, onChange, maxImages = 5, pathPrefix }: Imag
       setError(`Maximum ${maxImages} images allowed`);
       return;
     }
+    const toUpload = Array.from(files).slice(0, maxImages - value.length);
+    const unsupportedFile = toUpload.find((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type));
+    if (unsupportedFile) {
+      setError("Only JPG, PNG, and WEBP images are allowed");
+      return;
+    }
+    if (toUpload.some((file) => file.size > 5 * 1024 * 1024)) {
+      setError("Each image must be 5MB or smaller");
+      return;
+    }
     setError(null);
     setIsUploading(true);
     try {
-      const toUpload = Array.from(files).slice(0, maxImages - value.length);
       const urls = await Promise.all(toUpload.map(uploadFile));
       onChange([...value, ...urls]);
     } catch (err: any) {

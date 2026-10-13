@@ -9,6 +9,12 @@ import { Footer } from "@/components/layout/Footer";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { useAuthStore } from "@/store/authStore";
 import { OnlinePresenceProvider } from "@/hooks/useOnlinePresence";
+import {
+  isFloatingBackButtonRoute,
+  isMobileBottomNavHidden,
+  isNoTopNavRoute,
+} from "@/constants";
+import { FloatingBackButton } from "@/components/layout/FloatingBackButton";
 
 export default function MainLayout({ children }: { children: ReactNode }) {
   const { user } = useAuthStore();
@@ -19,22 +25,43 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     setIsHydrated(true);
   }, []);
 
-  if (!isHydrated) return null;
-
   const showFooter = !user;
-  const showBottomNav = !!user;
+  const currentPath = pathname ?? "";
+  const hasFloatingBackButton = isFloatingBackButtonRoute(currentPath);
+  const hideTopNavigation = isNoTopNavRoute(currentPath);
+  const hideTopNavigationOnMobile =
+    hideTopNavigation || isMobileBottomNavHidden(currentPath);
+  const showBottomNav = !!user && !isMobileBottomNavHidden(pathname ?? "");
+  const mainTopPadding = hasFloatingBackButton
+    ? "pt-[calc(var(--floating-back-size)+var(--space-3)+var(--safe-top))]"
+    : currentPath === "/buyer/profile"
+      ? "pt-0 md:pt-[var(--safe-top)]"
+      : hideTopNavigation
+        ? "pt-[var(--safe-top)]"
+        : hideTopNavigationOnMobile
+          ? "pt-0 md:pt-6"
+          : "pt-6";
 
   return (
-    <OnlinePresenceProvider userId={user?.id}>
-      <div className="min-h-screen bg-bg text-text">
-        <AnnouncementBar />
-        <Navbar variant={pathname === "/" ? "home" : "neutral"} />
-        <main className="mx-auto flex min-h-[calc(100vh-160px)] max-w-7xl flex-col px-4 py-6 sm:px-6 pb-16 md:pb-0">
-          {children}
-        </main>
-        {showFooter && <Footer />}
-        {showBottomNav && <BottomNav />}
-      </div>
-    </OnlinePresenceProvider>
+    <>
+      {isHydrated && (
+        <OnlinePresenceProvider userId={user?.id}>
+          <div className="min-h-svh bg-bg text-text">
+            <div className={hideTopNavigation ? "hidden" : hideTopNavigationOnMobile ? "hidden md:block" : undefined}>
+              <AnnouncementBar />
+            </div>
+            <div className={hideTopNavigation ? "hidden" : hideTopNavigationOnMobile ? "hidden md:block" : undefined}>
+              <Navbar variant={pathname === "/" ? "home" : "neutral"} />
+            </div>
+            <main className={`page-container min-h-[calc(100svh-160px)] pb-6 ${showBottomNav ? "pb-[calc(var(--bottom-nav-height)+var(--safe-bottom))]" : ""} md:pb-0 ${mainTopPadding}`}>
+              <div className="page-content w-full flex-1">{children}</div>
+            </main>
+            {showFooter && <Footer />}
+            {showBottomNav && <BottomNav />}
+          </div>
+        </OnlinePresenceProvider>
+      )}
+      <FloatingBackButton />
+    </>
   );
 }

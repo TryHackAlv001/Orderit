@@ -5,8 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Bell, Check, ChevronDown, Menu, MessageSquare, Monitor, Moon, Package,
-  Search, Settings, ShoppingCart, Star, Sun, X,
+  Bell, ChevronDown, Menu, MessageSquare, Package, Search, Settings, ShoppingCart, Star, X,
 } from "lucide-react";
 import { PRODUCT_CATEGORIES, getCurrencyOption } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,17 +13,11 @@ import { useNotifications } from "@/hooks/useNotifications";
 import type { NotificationType } from "@/lib/notifications";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
+import { useCart } from "@/hooks/useCart";
 import { useCurrencyStore } from "@/store/currencyStore";
 import { BottomNav } from "@/components/layout/BottomNav";
 
-type ThemePreference = "light" | "dark" | "system";
 type HeaderMenu = "navigation" | "profile" | null;
-
-const themeOptions = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
-] as const;
 
 function formatTimeAgo(date: string) {
   const elapsedSeconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -49,8 +42,6 @@ interface NavbarProps {
 
 export function Navbar({ variant = "neutral" }: NavbarProps) {
   const [openMenu, setOpenMenu] = useState<HeaderMenu>(null);
-  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
-  const themePreferenceRef = useRef<ThemePreference>("system");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchExamples, setSearchExamples] = useState<string[]>(PRODUCT_CATEGORIES);
@@ -69,13 +60,17 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
   const { signOut, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const cartCount = useCartStore((state) => state.items.reduce((count, item) => count + item.quantity, 0));
+  const cartPulseVersion = useCartStore((state) => state.pulseVersion);
+  useCart();
   const currencyCode = useCurrencyStore((state) => state.currency);
   const currency = getCurrencyOption(currencyCode);
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user?.id);
   const isVendor = user?.role === "vendor";
   const accountHref = isVendor ? "/vendor/orders" : user ? "/buyer/orders" : "/login";
   const profileHref = isVendor ? "/vendor/profile" : "/buyer/profile";
-  const settingsHref = isVendor ? "/vendor/settings" : "/buyer/profile#account-security";
+  const settingsHref = isVendor && pathname?.startsWith("/vendor")
+    ? "/settings?from=vendor"
+    : "/settings";
 
   const closeMenu = useCallback((restoreFocus = false) => {
     const previouslyOpen = openMenu;
@@ -244,38 +239,6 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
     };
   }, [searchQuery]);
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    let preference: ThemePreference = "system";
-    try {
-      const saved = window.localStorage.getItem("tradeloft-theme");
-      if (saved === "light" || saved === "dark" || saved === "system") preference = saved;
-    } catch {}
-    themePreferenceRef.current = preference;
-    setThemePreference(preference);
-    document.documentElement.dataset.theme = preference === "system"
-      ? mediaQuery.matches ? "dark" : "light"
-      : preference;
-
-    const handleSystemChange = (event: MediaQueryListEvent) => {
-      if (themePreferenceRef.current === "system") document.documentElement.dataset.theme = event.matches ? "dark" : "light";
-    };
-    mediaQuery.addEventListener("change", handleSystemChange);
-    return () => mediaQuery.removeEventListener("change", handleSystemChange);
-  }, []);
-
-  const selectTheme = (preference: ThemePreference) => {
-    themePreferenceRef.current = preference;
-    setThemePreference(preference);
-    try {
-      window.localStorage.setItem("tradeloft-theme", preference);
-    } catch {}
-    const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    document.documentElement.dataset.theme = preference === "system"
-      ? systemDark ? "dark" : "light"
-      : preference;
-  };
-
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = searchQuery.trim();
@@ -291,28 +254,6 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
     if (link) router.push(link);
   };
 
-  const renderThemeMenu = () => (
-    <div className="flex gap-2" role="group" aria-label="Theme preference">
-      {themeOptions.map(({ value, label, icon: Icon }) => (
-        <button
-          key={value}
-          type="button"
-          aria-pressed={themePreference === value}
-          onClick={() => selectTheme(value)}
-          className={`inline-flex min-h-10 items-center gap-1 rounded-full border px-3 py-2 text-sm hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-            themePreference === value
-              ? "border-accent-text bg-accent/10 font-semibold text-accent-text"
-              : "border-border text-text"
-          }`}
-        >
-          <Icon className="h-4 w-4" />
-          {label}
-          {themePreference === value && <Check className="h-3.5 w-3.5" />}
-        </button>
-      ))}
-    </div>
-  );
-
   const renderAccountMenu = (closeMobile = false) => (
     <>
       <Link
@@ -321,7 +262,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
           closeMenu(true);
           if (closeMobile) setOpenMenu(null);
         }}
-        className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="block min-h-11 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         My Profile
       </Link>
@@ -331,7 +272,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
           closeMenu(true);
           if (closeMobile) setOpenMenu(null);
         }}
-        className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="block min-h-11 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Messages
       </Link>
@@ -341,7 +282,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
           closeMenu(true);
           if (closeMobile) setOpenMenu(null);
         }}
-        className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="block min-h-11 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Orders
       </Link>
@@ -352,7 +293,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
             closeMenu(true);
             if (closeMobile) setOpenMenu(null);
           }}
-          className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="block min-h-11 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Vendor Dashboard
         </Link>
@@ -363,7 +304,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
           closeMenu(false);
           if (closeMobile) setOpenMenu(null);
         }}
-        className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="block min-h-11 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Settings
       </Link>
@@ -374,7 +315,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
           if (closeMobile) setOpenMenu(null);
           void signOut();
         }}
-        className="block min-h-10 w-full rounded-lg px-3 py-2 text-left text-sm text-danger-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="block min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm text-danger-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Sign Out
       </button>
@@ -392,7 +333,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
 
   const renderNavigationMenuContents = () => (
     <nav aria-label="Navigation menu" className="space-y-2">
-      <button type="button" disabled title="Product-level sales ranking is not available yet." className="block min-h-10 w-full rounded-lg px-3 py-2 text-left text-sm text-muted opacity-70">
+      <button type="button" disabled title="Product-level sales ranking is not available yet."       className="block min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm text-muted opacity-70">
         Best-Selling
       </button>
       <Link href="/marketplace?rating=4" onClick={closeAfterNavigation} className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Top Rated</Link>
@@ -405,6 +346,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
           {PRODUCT_CATEGORIES.map((category) => (
             <Link key={category} href={`/marketplace?category=${encodeURIComponent(category)}`} onClick={closeAfterNavigation} className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{category}</Link>
           ))}
+          <Link href="/categories" onClick={closeAfterNavigation} className="mt-1 block min-h-10 rounded-lg border-t border-border px-3 py-2 text-sm font-semibold text-accent-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">View all categories</Link>
         </div>
       </details>
       <Link href="/vendors" onClick={closeAfterNavigation} className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Vendors</Link>
@@ -420,10 +362,6 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
       <p className="px-3 py-2 text-sm text-muted" aria-label={`Language English, currency ${currency.code}`}>
         EN / {currency.code} {currency.symbol}
       </p>
-      <div className="border-t border-border pt-3">
-        <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-muted">Theme</p>
-        {renderThemeMenu()}
-      </div>
       {!authLoading && (user ? (
         <button type="button" onClick={() => { closeMenu(true); void signOut(); }} className="block min-h-10 w-full rounded-lg px-3 py-2 text-left text-sm text-danger-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Sign Out</button>
       ) : (
@@ -442,13 +380,13 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
           type="button"
           aria-label="Close navigation menu"
           onClick={() => closeMenu(true)}
-          className="fixed inset-x-0 top-0 z-[45] bg-black/35 md:hidden"
+          className="fixed inset-x-0 top-0 z-overlay-menu bg-black/35 md:hidden"
           style={{ bottom: "calc(4rem + 1px + env(safe-area-inset-bottom))" }}
         />
         <div
           id="navbar-mobile-navigation-menu"
           ref={mobileNavigationPanelRef}
-          className="fixed right-2 z-[60] max-h-[calc(100dvh-5rem)] w-[min(90vw,20rem)] overflow-y-auto rounded-xl border border-border bg-surface p-4 shadow-xl md:hidden"
+          className="fixed right-2 z-modal max-h-[calc(100dvh-5rem)] w-[min(90vw,20rem)] overflow-y-auto rounded-xl border border-border bg-surface p-4 shadow-xl md:hidden"
           style={{
             bottom: "calc(4rem + 1px + env(safe-area-inset-bottom))",
             maxHeight: "calc(100dvh - 5rem - 1px - env(safe-area-inset-bottom))",
@@ -463,7 +401,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
 
   return (
     <>
-    <header data-variant={variant} className={`fixed inset-x-0 top-0 z-40 border-b border-border shadow-sm backdrop-blur-xl md:sticky md:top-0 ${variant === "home" ? "navbar-home" : "bg-surface/95"}`}>
+    <header data-variant={variant} className={`fixed inset-x-0 top-0 z-sticky border-b border-border pt-[var(--safe-top)] shadow-sm backdrop-blur-xl md:sticky md:top-0 md:pt-0 ${variant === "home" ? "navbar-home" : "bg-surface/95"}`}>
       <div className="relative mx-auto flex h-16 max-w-[1600px] items-center gap-1 px-4 sm:gap-3 sm:px-6 md:h-auto md:py-3">
         <Link href="/" className="home-header-text hidden shrink-0 font-display text-lg font-bold tracking-tight text-accent-text sm:text-2xl md:block">
           Tradeloft
@@ -475,7 +413,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
         >
           <div className="relative min-w-0 flex-1">
             <input
-              className="relative z-10 w-full min-w-0 bg-transparent px-1 py-2 text-sm text-text placeholder:text-transparent focus:outline-none sm:px-2"
+              className="relative z-sticky w-full min-w-0 bg-transparent px-1 py-2 text-base text-text placeholder:text-transparent focus:outline-none sm:px-2 md:text-sm"
               type="search"
               aria-label="Search products and vendors"
               placeholder={`Search ${searchExamples[searchExampleIndex] ?? "products"}...`}
@@ -505,7 +443,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
             <Search className="h-4 w-4" aria-hidden="true" />
           </button>
           {suggestionError && (
-            <p role="alert" className="absolute left-0 top-full z-50 mt-2 rounded-lg border border-danger/30 bg-surface px-3 py-2 text-xs text-danger-text shadow-lg">
+            <p role="alert" className="absolute left-0 top-full z-overlay-menu mt-2 rounded-lg border border-danger/30 bg-surface px-3 py-2 text-xs text-danger-text shadow-lg">
               {suggestionError}
             </p>
           )}
@@ -535,12 +473,14 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
           </div>
 
           <Link href="/cart" className="home-header-text relative hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex" aria-label={`Cart${cartCount ? `, ${cartCount} items` : ""}`}>
+            <span key={cartPulseVersion} className="cart-add-pulse inline-flex">
             <ShoppingCart className="h-5 w-5" />
+            </span>
             {cartCount > 0 && <span className="home-header-badge absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-accent-on">{cartCount > 99 ? "99+" : cartCount}</span>}
           </Link>
 
           {notificationsOpen && (
-            <div className="fixed right-2 top-20 z-50 hidden w-[min(90vw,20rem)] overflow-hidden rounded-xl border border-border bg-surface shadow-lg md:block">
+            <div className="fixed right-2 top-20 z-overlay-menu hidden w-[min(90vw,20rem)] overflow-hidden rounded-xl border border-border bg-surface shadow-lg md:block">
               <div className="flex items-center justify-between border-b border-border p-4">
                 <h2 className="font-semibold text-text">Notifications</h2>
                 {user && unreadCount > 0 && <button type="button" onClick={markAllAsRead} className="min-h-10 px-2 text-xs font-semibold text-accent-text hover:underline">Mark all read</button>}
@@ -602,7 +542,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
                   <div
                     id="navbar-profile-menu"
                     ref={profilePanelRef}
-                    className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-5rem)] w-[min(90vw,14rem)] overflow-y-auto rounded-xl border border-border bg-surface p-2 shadow-lg"
+                    className="absolute right-0 top-full z-overlay-menu mt-2 max-h-[calc(100dvh-5rem)] w-[min(90vw,14rem)] overflow-y-auto rounded-xl border border-border bg-surface p-2 shadow-lg"
                   >
                     {isVendor && profile?.id && (
                       <Link href={`/vendor/${profile.id}/store`} onClick={closeAfterNavigation} className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">My Store</Link>
@@ -632,7 +572,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
               <div
                 id="navbar-navigation-menu"
                 ref={navigationPanelRef}
-                className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-5rem)] w-[min(90vw,20rem)] overflow-y-auto rounded-xl border border-border bg-surface p-4 shadow-xl"
+                className="absolute right-0 top-full z-overlay-menu mt-2 max-h-[calc(100dvh-5rem)] w-[min(90vw,20rem)] overflow-y-auto rounded-xl border border-border bg-surface p-4 shadow-xl"
               >
                 {renderNavigationMenuContents()}
               </div>
@@ -641,7 +581,7 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
         </div>
       </div>
     </header>
-    <div aria-hidden="true" className="h-[101px] md:hidden" />
+    <div aria-hidden="true" className="h-[var(--mobile-chrome-height)] md:hidden" />
     {!user && <BottomNav />}
     {mobileNavigationOverlay}
     </>

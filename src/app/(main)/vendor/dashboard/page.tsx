@@ -181,9 +181,9 @@ export default function VendorDashboardPage() {
   const vendorId = vendorProfile?.id || profile?.id || user?.id;
 
   return (
-    <div className="p-6">
+    <div className="min-w-0 px-0 py-4 md:p-6">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-accent-text">
+        <h1 className="break-words text-2xl font-bold text-accent-text">
           Welcome back, {vendorName}
         </h1>
       </header>
@@ -203,22 +203,22 @@ export default function VendorDashboardPage() {
         </section>
       )}
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="rounded-md border border-border bg-surface p-4 shadow-sm">
-          <div className="text-sm text-muted">Total Revenue</div>
-          <div className="font-display text-xl font-semibold">₦{totalRevenue.toLocaleString()}</div>
+      <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <div className="min-w-0 rounded-md border border-border bg-surface p-3 shadow-sm sm:p-4">
+          <div className="text-xs text-muted sm:text-sm">Total Revenue</div>
+          <div className="break-words font-display text-lg font-semibold sm:text-xl">₦{totalRevenue.toLocaleString()}</div>
         </div>
-        <div className="p-4 bg-surface rounded shadow">
-          <div className="text-sm text-muted">Total Orders</div>
-          <div className="text-xl font-semibold">{totalOrders}</div>
+        <div className="min-w-0 rounded bg-surface p-3 shadow sm:p-4">
+          <div className="text-xs text-muted sm:text-sm">Total Orders</div>
+          <div className="text-lg font-semibold sm:text-xl">{totalOrders}</div>
         </div>
-        <div className="p-4 bg-surface rounded shadow">
-          <div className="text-sm text-muted">Active Products</div>
-          <div className="text-xl font-semibold">{activeProducts}</div>
+        <div className="min-w-0 rounded bg-surface p-3 shadow sm:p-4">
+          <div className="text-xs text-muted sm:text-sm">Active Products</div>
+          <div className="text-lg font-semibold sm:text-xl">{activeProducts}</div>
         </div>
-        <div className="p-4 bg-surface rounded shadow">
-          <div className="text-sm text-muted">Average Rating</div>
-          <div className="text-xl font-semibold">{averageRating ?? "—"}</div>
+        <div className="min-w-0 rounded bg-surface p-3 shadow sm:p-4">
+          <div className="text-xs text-muted sm:text-sm">Average Rating</div>
+          <div className="text-lg font-semibold sm:text-xl">{averageRating ?? "—"}</div>
         </div>
       </section>
 
@@ -254,7 +254,35 @@ export default function VendorDashboardPage() {
 
       <section className="mb-6">
         <h2 className="text-lg font-medium mb-3">Recent Orders</h2>
-        <div className="bg-surface shadow rounded overflow-x-auto">
+        <div className="space-y-3 md:hidden">
+          {recentOrders.length === 0 ? (
+            <div className="rounded-lg border border-border bg-surface p-4 text-center text-sm text-muted">
+              No recent orders
+            </div>
+          ) : recentOrders.map((order) => (
+            <article key={order.id} className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted">Order</p>
+                  <p className="break-all font-semibold text-text">#{order.id.slice(0, 8)}</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-1 text-xs ${statusColor(order.status)}`}>
+                  {order.status}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap items-end justify-between gap-2 border-t border-border pt-3">
+                <div>
+                  <p className="text-xs text-muted">Total</p>
+                  <p className="font-display font-semibold text-text">₦{(order.total || 0).toLocaleString()}</p>
+                </div>
+                <p className="text-right text-xs text-muted">
+                  {new Date(order.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}
+                </p>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto rounded bg-surface shadow md:block">
           <table className="min-w-full">
             <thead>
               <tr className="text-left text-sm text-muted border-b">
@@ -296,8 +324,8 @@ export default function VendorDashboardPage() {
             <div className="p-4 text-muted">No low stock products.</div>
           )}
           {lowStock.map((p) => (
-            <div key={p.id} className="p-4 bg-warning/10 border-l-4 border-warning rounded">
-              <div className="font-semibold">{p.name}</div>
+            <div key={p.id} className="min-w-0 p-4 bg-warning/10 border-l-4 border-warning rounded">
+              <div className="line-clamp-2 break-words font-semibold">{p.name}</div>
               <div className="text-sm text-text">Only {p.stock_quantity} left</div>
             </div>
           ))}

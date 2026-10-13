@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import { CartDrawer } from "@/components/checkout/CartDrawer";
-import { useCartStore } from "@/store/cartStore";
+import { usePurchasableCart } from "@/hooks/usePurchasableCart";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 
 export default function CheckoutPage() {
-  const items = useCartStore((state) => state.items);
+  const items = usePurchasableCart();
   const { user, isLoading } = useAuth();
 
   if (isLoading) {

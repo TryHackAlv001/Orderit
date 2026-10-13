@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdminClient } from "@/lib/supabase-admin";
 
 type ReturnStatus =
   | "requested"
@@ -58,7 +59,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 
   if (body.status === "refunded") {
-    const { data: balance, error } = await supabase.rpc("process_return_refund", {
+    const { data: balance, error } = await supabaseAdminClient.rpc("process_return_refund", {
       p_return_request_id: returnRequest.id,
       p_note: note || null,
     });
@@ -66,7 +67,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     return NextResponse.json({ status: "refunded", buyerWalletBalance: balance });
   }
 
-  const { data: updated, error } = await supabase
+  const { data: updated, error } = await supabaseAdminClient
     .from("return_requests")
     .update({ status: body.status, tracking_note: note || null })
     .eq("id", returnRequest.id)

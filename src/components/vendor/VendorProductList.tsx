@@ -206,7 +206,7 @@ export function VendorProductList({ products: initialProducts, categories }: Ven
         )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+      <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
         <table className="min-w-full divide-y divide-border text-sm text-text">
           <thead className="bg-bg text-muted">
             <tr>
@@ -269,8 +269,8 @@ export function VendorProductList({ products: initialProducts, categories }: Ven
                           <div className="flex h-full items-center justify-center text-muted">N/A</div>
                         )}
                       </div>
-                      <div>
-                        <p className="font-semibold text-text">{product.name}</p>
+                      <div className="min-w-0">
+                        <p className="max-w-56 truncate font-semibold text-text" title={product.name}>{product.name}</p>
                         <p className="text-sm text-muted">{product.sku || "No SKU"}</p>
                       </div>
                     </div>
@@ -286,14 +286,14 @@ export function VendorProductList({ products: initialProducts, categories }: Ven
                   <td className="px-4 py-4 text-text">{Number(product.rating).toFixed(1)}</td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
-                      <Link href={`/vendor/products/${product.id}/edit`} className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-xs font-semibold text-text transition-colors duration-200 hover:bg-bg">
+                      <Link href={`/vendor/products/${product.id}/edit`} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-xs font-semibold text-text transition-colors duration-200 hover:bg-bg">
                         <Edit3 className="h-3.5 w-3.5" />
                         Edit
                       </Link>
                       <button
                         type="button"
                         onClick={() => handleDeleteOne(product.id)}
-                        className="inline-flex items-center gap-2 rounded-full bg-danger px-3 py-2 text-xs font-semibold text-accent-on transition hover:bg-danger"
+                        className="inline-flex min-h-11 items-center gap-2 rounded-full bg-danger px-3 py-2 text-xs font-semibold text-accent-on transition hover:bg-danger"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         Delete

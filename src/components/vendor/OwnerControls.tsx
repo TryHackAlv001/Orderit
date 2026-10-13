@@ -20,28 +20,28 @@ export function OwnerControls({ vendorId, onToggleView }: OwnerControlsProps) {
   };
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <Link href="/vendor/settings">
-          <Button>
+    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-wrap gap-2 sm:gap-3">
+        <Link href="/vendor/settings" className="flex-1 sm:flex-none">
+          <Button className="w-full">
             <Edit3 className="mr-2 h-4 w-4" />
             Edit Store
           </Button>
         </Link>
 
-        <Link href="/vendor/products/new">
-          <Button>
+        <Link href="/vendor/products/new" className="flex-1 sm:flex-none">
+          <Button className="w-full">
             <Plus className="mr-2 h-4 w-4" />
             Add Product
           </Button>
         </Link>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={handleToggle}
-          className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 text-sm text-text hover:bg-bg"
+          className="inline-flex min-h-11 max-w-full items-center gap-2 self-start rounded-full border border-border bg-surface px-3 py-2 text-sm text-text hover:bg-bg"
         >
           <Eye className="h-4 w-4" />
           {viewPublic ? 'View as Public' : 'Viewing as Owner'}

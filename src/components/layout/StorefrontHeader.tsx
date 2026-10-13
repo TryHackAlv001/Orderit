@@ -29,7 +29,7 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
   return (
     <div className="space-y-6">
       {/* Banner Image */}
-      <div className="relative h-64 w-full overflow-hidden rounded-lg border border-border bg-surface-raised md:h-80">
+      <div className="relative h-40 w-full overflow-hidden rounded-lg border border-border bg-surface-raised sm:h-56 md:h-80">
         {vendor.banner_url ? (
           <Image
             src={vendor.banner_url}
@@ -52,10 +52,10 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
       </div>
 
       {/* Vendor Info Row */}
-      <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-start gap-6">
+      <div className="flex min-w-0 flex-col gap-4 sm:gap-6 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-6">
           {/* Logo */}
-          <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-full border border-border bg-surface-raised shadow-sm">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-border bg-surface-raised shadow-sm sm:h-24 sm:w-24">
             {vendor.logo_url ? (
               <Image
                 src={vendor.logo_url}
@@ -65,7 +65,7 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
               />
             ) : (
               <div className="flex h-full items-center justify-center bg-accent/10 text-accent-text">
-                <Package className="h-12 w-12" />
+                <Package className="h-8 w-8 sm:h-12 sm:w-12" />
               </div>
             )}
             {isOwner ? (
@@ -80,9 +80,9 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
           </div>
 
           {/* Vendor Details */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-text">{vendor.shop_name}</h1>
+          <div className="min-w-0 space-y-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="break-words text-2xl font-bold text-text sm:text-3xl">{vendor.shop_name}</h1>
               {vendor.is_verified && (
                 <Badge className="bg-success/10 text-text">Verified</Badge>
               )}
@@ -96,9 +96,9 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
                 </div>
               )}
 
-              <div className="flex items-center gap-1">
+              <div className="flex min-w-0 items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                <span>Member since {new Date(vendor.created_at).getFullYear()}</span>
+                <span className="break-words">Member since {new Date(vendor.created_at).getFullYear()}</span>
               </div>
 
               <div className="flex items-center gap-1">
@@ -123,8 +123,8 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
         </div>
 
         {/* Action Buttons: if owner show Edit/Add, else show Message/Follow. Share always visible */}
-        <div className="flex flex-col items-center gap-3 md:flex-row md:items-center md:gap-3">
-          <div className="flex flex-wrap gap-3">
+        <div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex min-w-0 flex-wrap gap-2 sm:gap-3">
             {isOwner ? (
               <>
                 <a href="/vendor/settings" className="">

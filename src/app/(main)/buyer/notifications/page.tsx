@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight, MessageSquare, Package, Settings, Star } fro
 import { useNotifications } from '@/hooks/useNotifications';
 import { useAuthStore } from '@/store/authStore';
 import type { NotificationType } from '@/lib/notifications';
+import { createClient } from '@/lib/supabase/client';
+import { getMessageNotificationsEnabled } from '@/lib/user-preferences';
 
 interface NotificationRecord {
   id: string;
@@ -47,6 +49,7 @@ export default function BuyerNotificationsPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<'all' | 'unread' | 'orders' | 'messages'>('all');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { markAsRead } = useNotifications(user?.id);
 
   const limit = 20;
@@ -56,7 +59,10 @@ export default function BuyerNotificationsPage() {
     if (!user) return;
 
     setLoading(true);
+    setLoadError(null);
     try {
+      const supabase = createClient();
+      const notifyMessages = await getMessageNotificationsEnabled(user.id);
       const params = new URLSearchParams({
         limit: limit.toString(),
         offset: ((page - 1) * limit).toString(),
@@ -71,14 +77,25 @@ export default function BuyerNotificationsPage() {
       }
 
       const response = await fetch(`/api/notifications?${params}`);
-
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.notifications || []);
-        setTotal(data.total || 0);
+      if (!response.ok) throw new Error('Notifications could not be loaded.');
+      const data = await response.json();
+      const visibleNotifications = (data.notifications || []).filter(
+        (notification: NotificationRecord) => notifyMessages || notification.type !== 'message'
+      );
+      let visibleTotal = data.total || 0;
+      if (!notifyMessages && filter !== 'messages') {
+        const { count, error: countError } = await supabase.from('notifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('type', 'message');
+        if (countError) throw countError;
+        visibleTotal = Math.max(0, visibleTotal - (count ?? 0));
       }
+      setNotifications(visibleNotifications);
+      setTotal(visibleTotal);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
+      setLoadError(error instanceof Error ? error.message : 'Notifications could not be loaded.');
     } finally {
       setLoading(false);
     }
@@ -143,6 +160,12 @@ export default function BuyerNotificationsPage() {
       </div>
 
       <div className="space-y-3">
+        {loadError && (
+          <div role="alert" className="rounded-lg border border-danger bg-danger/10 p-4 text-sm text-danger-text">
+            <p>{loadError}</p>
+            <button type="button" onClick={() => void fetchNotifications()} className="mt-2 min-h-11 font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Try again</button>
+          </div>
+        )}
         {loading ? (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (

@@ -88,14 +88,14 @@ function StockInput({
       />
       <button
         onClick={handleSave}
-        className="p-1 text-text hover:text-text"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-text hover:text-text"
         title="Save"
       >
         <Save className="w-4 h-4" />
       </button>
       <button
         onClick={onCancel}
-        className="p-1 text-danger-text hover:text-danger-text"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-danger-text hover:text-danger-text"
         title="Cancel"
       >
         <X className="w-4 h-4" />
@@ -309,11 +309,11 @@ export default function InventoryPage({ products: initialProducts, categories }:
 
       {/* Bulk Actions */}
       {selectedProducts.size > 0 && (
-        <div className="flex items-center gap-4 p-4 bg-accent/10 border border-accent rounded-lg">
-          <span className="text-sm font-medium text-accent-text">
+        <div className="flex min-w-0 flex-col gap-3 p-4 bg-accent/10 border border-accent rounded-lg sm:flex-row sm:items-center sm:gap-4">
+          <span className="min-w-0 text-sm font-medium text-accent-text">
             {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} selected
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Input
               type="number"
               placeholder="New quantity"
@@ -379,8 +379,8 @@ export default function InventoryPage({ products: initialProducts, categories }:
                       />
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-surface-raised rounded-lg overflow-hidden flex-shrink-0">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="aspect-square h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-surface-raised">
                           {product.images[0] ? (
                             <Image
                               src={product.images[0]}
@@ -395,8 +395,8 @@ export default function InventoryPage({ products: initialProducts, categories }:
                             </div>
                           )}
                         </div>
-                        <div>
-                          <div className="font-medium text-text">{product.name}</div>
+                        <div className="min-w-0">
+                          <div className="line-clamp-2 break-words font-medium text-text">{product.name}</div>
                           <div className="text-sm text-muted">ID: {product.id.slice(0, 8)}</div>
                         </div>
                       </div>
@@ -417,7 +417,7 @@ export default function InventoryPage({ products: initialProducts, categories }:
                       ) : (
                         <button
                           onClick={() => setEditingStock(product.id)}
-                          className={`inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${
+                          className={`inline-flex min-h-11 items-center gap-2 px-2 py-1 rounded-full text-xs font-medium ${
                             product.stock_quantity === 0
                               ? "bg-danger/10 text-danger-text"
                               : product.stock_quantity <= 5
@@ -476,13 +476,13 @@ export default function InventoryPage({ products: initialProducts, categories }:
 
       {/* Stock History Modal */}
       {showStockHistory && (
-        <div className="fixed inset-0 bg-background bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-surface rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+        <div className="fixed inset-0 z-modal flex items-center justify-center bg-background bg-opacity-50">
+          <div className="mx-4 max-h-[80dvh] w-full max-w-2xl overflow-y-auto rounded-lg bg-surface p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Stock History</h3>
               <button
                 onClick={() => setShowStockHistory(null)}
-                className="text-muted hover:text-muted"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center text-muted hover:text-muted"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -497,12 +497,12 @@ export default function InventoryPage({ products: initialProducts, categories }:
             ) : (
               <div className="space-y-3">
                 {stockHistory.map((log) => (
-                  <div key={log.id} className="flex items-center justify-between p-3 bg-bg rounded-lg">
-                    <div>
+                  <div key={log.id} className="grid grid-cols-1 gap-2 rounded-lg bg-bg p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                    <div className="min-w-0">
                       <div className="font-medium text-text">
                         {log.previous_qty} → {log.new_qty}
                       </div>
-                      <div className="text-sm text-muted">
+                      <div className="break-words text-sm text-muted sm:text-right">
                         by {log.user.full_name || log.user.email}
                       </div>
                     </div>

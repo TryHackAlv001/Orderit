@@ -90,9 +90,9 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="min-h-screen bg-bg">
+    <main className="min-h-svh bg-bg">
       <Toaster position="top-right" toastOptions={{ style: { background: "var(--surface-raised)", color: "var(--foreground)", border: "1px solid var(--border)", boxShadow: "var(--shadow-soft)" }, success: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } }, error: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } } }} />
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-12 lg:px-8">
+      <div className="page-container min-h-svh justify-center py-12">
         <div className="grid gap-10 rounded-lg border border-border bg-surface p-8 shadow-sm sm:p-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
             <div>

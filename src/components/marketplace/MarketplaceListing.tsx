@@ -8,7 +8,10 @@ import { ChevronDown, ChevronRight, SlidersHorizontal, X } from "lucide-react";
 import { LOCATIONS } from "@/constants";
 import { ALL_SIZE_OPTIONS, getSizeConfig } from "@/constants/sizes";
 import { ProductGrid, type MarketplaceGridProduct } from "@/components/marketplace/ProductGrid";
-import { loadMarketplaceProducts, type MarketplaceSearchVendor } from "@/components/marketplace/marketplace-data";
+import {
+  loadMarketplaceProducts,
+  type MarketplaceSearchVendor,
+} from "@/components/marketplace/marketplace-data";
 
 const PAGE_SIZE = 12;
 const SORT_OPTIONS = [
@@ -83,7 +86,7 @@ function SearchContent() {
   const [options, setOptions] = useState<SearchOptions>({ categories: [], colors: [], brands: [] });
   const [products, setProducts] = useState<MarketplaceGridProduct[]>([]);
   const [vendors, setVendors] = useState<MarketplaceSearchVendor[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -91,6 +94,7 @@ function SearchContent() {
   const filterScrollRef = useRef<HTMLDivElement>(null);
   const filterTriggerRef = useRef<HTMLButtonElement>(null);
   const filterDialogRef = useRef<HTMLElement>(null);
+  const loadedProductsRef = useRef<MarketplaceGridProduct[]>([]);
 
   useEffect(() => {
     setFilters(filtersFromParams(new URLSearchParams(queryString)));
@@ -139,6 +143,12 @@ function SearchContent() {
   }, [mobileFiltersOpen]);
 
   const navigateWithFilters = useCallback((next: SearchFilters, replace = false) => {
+    if (next.page === 1) {
+      loadedProductsRef.current = [];
+      setProducts([]);
+      setVendors([]);
+      setHasMore(true);
+    }
     setFilters(next);
     const query = queryFromFilters(next);
     const url = query ? `${pathname}?${query}` : pathname;
@@ -174,34 +184,45 @@ function SearchContent() {
     setError(null);
     setRequestError(null);
 
-    loadMarketplaceProducts(new URLSearchParams(params), controller.signal)
-      .then((result) => {
-        if (controller.signal.aborted) return;
-        setError(result.warning);
-        setProducts((current) => filters.page === 1
-          ? result.products
-          : [...current, ...result.products.filter((product) => !current.some((item) => item.id === product.id))]);
-        setVendors(result.vendors);
-        setTotalCount(result.totalCount);
-        setOptions(result.options ?? { categories: [], colors: [], brands: [] });
+    const loadPage = async () => {
+      const result = await loadMarketplaceProducts(new URLSearchParams(params), controller.signal);
+      if (controller.signal.aborted) return;
+      setError(result.warning);
+      const nextProducts = filters.page === 1
+        ? result.products
+        : [
+          ...loadedProductsRef.current,
+          ...result.products.filter((product) =>
+            !loadedProductsRef.current.some((item) => item.id === product.id)
+          ),
+        ];
+      loadedProductsRef.current = nextProducts;
+      setProducts(nextProducts);
+      setVendors(result.vendors);
+      const lastResultPage = Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE));
+      setHasMore(filters.page < lastResultPage);
+      setOptions(result.options ?? { categories: [], colors: [], brands: [] });
 
-        const categoryIds = filters.category.map((category) =>
-          result.options?.categories?.find((option: SearchOptions["categories"][number]) =>
-            option.name.toLowerCase() === category.toLowerCase()
-          )?.id ?? category
-        );
-        if (categoryIds.some((category, index) => category !== filters.category[index])) {
-          navigateWithFilters({ ...filters, category: categoryIds }, true);
-        }
-      })
+      const categoryIds = filters.category.map((category) =>
+        result.options?.categories?.find((option: SearchOptions["categories"][number]) =>
+          option.name.toLowerCase() === category.toLowerCase()
+        )?.id ?? category
+      );
+      if (categoryIds.some((category, index) => category !== filters.category[index])) {
+        navigateWithFilters({ ...filters, category: categoryIds }, true);
+      }
+    };
+
+    loadPage()
       .catch((fetchError: unknown) => {
         if (fetchError instanceof Error && fetchError.name === "AbortError") return;
         setRequestError(fetchError instanceof Error ? fetchError.message : "Unable to search products.");
         if (filters.page === 1) {
           setProducts([]);
           setVendors([]);
+          loadedProductsRef.current = [];
         }
-        setTotalCount(0);
+        setHasMore(false);
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -246,7 +267,6 @@ function SearchContent() {
     return chips;
   }, [filters, options.categories]);
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const selectedCategories = filters.category
     .map((id) => options.categories.find((item) => item.id === id))
     .filter((category): category is SearchOptions["categories"][number] => Boolean(category));
@@ -350,7 +370,7 @@ function SearchContent() {
     ? `Results for “${filters.q}”`
     : selectedCategories.length === 1
       ? selectedCategories[0].name
-      : "Discover products";
+    : "Explore your interests";
   const hasSearchQuery = Boolean(filters.q.trim());
 
   return (
@@ -465,7 +485,7 @@ function SearchContent() {
                 <summary className={`${filterPillClass} flex cursor-pointer list-none items-center gap-2 ${filters.minPrice || filters.maxPrice ? "border-accent bg-accent text-accent-on" : ""}`}>
                   Price <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 </summary>
-                <div className="absolute left-0 top-full z-30 mt-2 flex w-72 gap-2 rounded-xl border border-border bg-surface p-4 shadow-lg">
+                <div className="absolute left-0 top-full z-sticky mt-2 flex w-[min(18rem,calc(100vw-2rem))] gap-2 rounded-xl border border-border bg-surface p-4 shadow-lg">
                   <input aria-label="Minimum price in naira" type="number" min="0" placeholder="Min ₦" value={filters.minPrice} onChange={(event) => updateFilter("minPrice", event.target.value)} className={selectClass} />
                   <input aria-label="Maximum price in naira" type="number" min="0" placeholder="Max ₦" value={filters.maxPrice} onChange={(event) => updateFilter("maxPrice", event.target.value)} className={selectClass} />
                 </div>
@@ -475,7 +495,7 @@ function SearchContent() {
               type="button"
               aria-label="Scroll filter options right"
               onClick={() => filterScrollRef.current?.scrollBy({ left: 320, behavior: "smooth" })}
-              className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-text shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ChevronRight className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -483,24 +503,21 @@ function SearchContent() {
         )}
       </section>}
 
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-text">{heading}</h1>
-          <p className="mt-1 text-sm text-muted" aria-live="polite">
-            {loading ? "Loading results…" : `${totalCount.toLocaleString()} products · ${vendors.length.toLocaleString()} vendors`}
-          </p>
-        </div>
+      <div className="mb-4 flex justify-center">
+        <h1 className="mx-auto max-w-full break-words text-balance text-center text-[19px] font-medium leading-tight tracking-tight text-text sm:text-[23px]">
+          {heading}
+        </h1>
       </div>
 
       {activeChips.length > 0 && (
         <div className="mb-5 flex flex-wrap items-center gap-2" aria-label="Active filters">
           {activeChips.map((chip) => (
             <button key={chip.key} type="button" onClick={chip.remove}
-              className="inline-flex items-center gap-1 rounded-md bg-accent/10 px-3 py-1.5 text-sm text-text">
+              className="inline-flex min-h-11 items-center gap-1 rounded-md bg-accent/10 px-3 py-1.5 text-sm text-text">
               {chip.label}<X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           ))}
-          <button type="button" onClick={clearAll} className="ml-1 text-sm font-semibold text-muted underline">Clear all</button>
+          <button type="button" onClick={clearAll} className="ml-1 inline-flex min-h-11 items-center text-sm font-semibold text-muted underline">Clear all</button>
         </div>
       )}
 
@@ -509,7 +526,7 @@ function SearchContent() {
       {hasSearchQuery && (
         <section aria-labelledby="vendor-search-results-heading" className="mb-8">
           <h2 id="vendor-search-results-heading" className="mb-4 text-xl font-semibold text-text">
-            Vendors ({vendors.length})
+            Vendors
           </h2>
           {vendors.length ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -547,15 +564,12 @@ function SearchContent() {
         </section>
       )}
 
-      <section aria-labelledby="product-search-results-heading">
-        <h2 id="product-search-results-heading" className="mb-4 text-xl font-semibold text-text">
-          Products ({totalCount.toLocaleString()})
-        </h2>
+      <section aria-label="Product listings">
         <ProductGrid
           products={products}
           loading={loading}
           error={requestError}
-          hasMore={filters.page < totalPages}
+          hasMore={hasMore}
           onLoadMore={() => navigateWithFilters({ ...filters, page: filters.page + 1 })}
           emptyMessage="Try changing or clearing your filters."
           emptyActionLabel="Clear all filters"
@@ -564,21 +578,21 @@ function SearchContent() {
       </section>
 
       {hasSearchQuery && mobileFiltersOpen && (
-        <div className="fixed inset-0 z-50 bg-background/55" onClick={() => setMobileFiltersOpen(false)}>
+        <div className="fixed inset-0 z-overlay-menu bg-background/55" onClick={() => setMobileFiltersOpen(false)}>
           <section role="dialog" aria-modal="true" aria-label="Product filters"
             className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto bg-surface p-5 pb-8 shadow-2xl sm:p-7"
             ref={filterDialogRef}
             tabIndex={-1}
             onClick={(event) => event.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between border-b border-border pb-4">
-              <span className="text-sm text-muted">{totalCount.toLocaleString()} results</span>
+              <span className="text-sm text-muted">Filters</span>
               <button type="button" aria-label="Close filters" onClick={() => setMobileFiltersOpen(false)}
                 className="rounded-md p-2 text-muted hover:bg-surface-raised"><X className="h-5 w-5" /></button>
             </div>
             {filterControls("drawer")}
             <button type="button" onClick={() => setMobileFiltersOpen(false)}
               className="mt-6 w-full rounded-full bg-accent px-5 py-3 font-semibold text-accent-on">
-              Show {totalCount.toLocaleString()} results
+              Show results
             </button>
           </section>
         </div>
