@@ -82,7 +82,7 @@ export const SIZE_CONFIG: Readonly<Record<string, SizeConfig>> = {
   "computers-laptops": { type: "multi", label: "Storage or screen size", options: phoneOptions },
   beauty: { type: "multi", label: "Volume", options: volumeSizes },
   "beauty-personal-care": { type: "multi", label: "Volume", options: volumeSizes },
-  "food-drinks": { type: "multi", label: "Pack size", options: [...weightSizes, ...volumeSizes, "Pack of 2", "Pack of 4", "Pack of 6", "Pack of 12"] },
+  "food-drinks": { type: "multi", label: "Size or quantity", options: [...weightSizes, ...volumeSizes, "Pack of 2", "Pack of 4", "Pack of 6", "Pack of 12"] },
   groceries: { type: "multi", label: "Pack size", options: [...weightSizes, ...volumeSizes, "Pack of 2", "Pack of 4", "Pack of 6", "Pack of 12"] },
   agriculture: { type: "multi", label: "Weight or volume", options: [...weightSizes, ...volumeSizes] },
   "home-kitchen": { type: "single", label: "Product size", options: standardSizes },

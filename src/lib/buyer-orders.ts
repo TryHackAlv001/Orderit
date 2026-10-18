@@ -1,4 +1,4 @@
-export const IN_PROGRESS_ORDER_STATUSES = [
+const IN_PROGRESS_ORDER_STATUSES = [
   "pending",
   "confirmed",
   "preparing",
@@ -6,6 +6,16 @@ export const IN_PROGRESS_ORDER_STATUSES = [
   "out_for_delivery",
 ] as const;
 
+export function getBuyerInProgressOrderStatuses(): readonly string[] {
+  return IN_PROGRESS_ORDER_STATUSES;
+}
+
 export function isBuyerOrderInProgress(status: string): boolean {
-  return IN_PROGRESS_ORDER_STATUSES.some((inProgressStatus) => inProgressStatus === status);
+  return getBuyerInProgressOrderStatuses().some((inProgressStatus) => inProgressStatus === status);
+}
+
+export function countBuyerOrdersInProgress(
+  orders: readonly { status: string }[],
+): number {
+  return orders.filter((order) => isBuyerOrderInProgress(order.status)).length;
 }

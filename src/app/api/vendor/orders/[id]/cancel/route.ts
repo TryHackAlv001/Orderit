@@ -1,60 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { supabaseAdminClient } from "@/lib/supabase-admin";
 
-interface Params {
-  params: {
-    id: string;
-  };
-}
-
-export async function POST(request: NextRequest, { params }: Params) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createSupabaseServerClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData?.user?.id;
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const body = await request.json();
-  const reason = body.reason?.trim();
-  if (!reason) {
-    return NextResponse.json({ error: "Cancellation reason is required" }, { status: 400 });
+  let body: { reason?: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON" }, { status: 400 });
   }
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+  if (!reason) return NextResponse.json({ error: "Cancellation reason is required." }, { status: 400 });
+  if (reason.length > 1000) return NextResponse.json({ error: "Cancellation reason must be 1000 characters or fewer." }, { status: 400 });
 
-  // Resolve vendor profile for current user
-  const { data: vp, error: vpError } = await supabase
-    .from("vendor_profiles")
-    .select("id")
-    .eq("user_id", userId)
-    .single();
-
-  if (vpError || !vp) return NextResponse.json({ error: "Vendor profile not found" }, { status: 404 });
-  const vendorProfileId = userId;
-
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .select("id,buyer_id,vendor_id,status,delivery_address")
-    .eq("id", params.id)
-    .eq("vendor_id", vendorProfileId)
-    .single();
-
-  if (orderError || !order) {
-    return NextResponse.json({ error: "Order not found or access denied" }, { status: 404 });
-  }
-
-  const deliveryAddress = typeof order.delivery_address === "object" && order.delivery_address !== null
-    ? order.delivery_address
-    : { address: order.delivery_address ?? "" };
-
-  const { error } = await supabaseAdminClient.from("orders").update({
-    status: "cancelled",
-    tracking_note: reason,
-    delivery_address: { ...deliveryAddress, cancel_reason: reason },
-  }).eq("id", params.id);
-
+  const { error } = await supabase.rpc("advance_order_status", {
+    order_id: params.id,
+    to_status: "cancelled",
+    details: { cancellation_reason: reason },
+  });
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const status = error.code === "22023"
+      ? 400
+      : error.code === "42501"
+        ? 409
+        : error.code === "P0002"
+          ? 404
+          : 500;
+    return NextResponse.json({ error: error.message }, { status });
   }
-
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, status: "cancelled" });
 }

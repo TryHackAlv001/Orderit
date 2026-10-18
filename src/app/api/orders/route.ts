@@ -199,6 +199,7 @@ export async function POST(request: NextRequest) {
         product_name: product.name,
         product_image: product.images?.[0] ?? null,
         selected_size: selectedSize,
+        selected_color: selectedVariant?.color ?? requestedColor,
         variant_id: selectedVariant?.id ?? null,
       };
     });

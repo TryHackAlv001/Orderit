@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Bell, Check } from 'lucide-react';
 import { getMessageNotificationsEnabled } from '@/lib/user-preferences';
+import { MARKETPLACE_ROUTE } from '@/constants';
 
 type Notification = {
   id: string;
@@ -25,7 +26,7 @@ export default function VendorNotificationsPage() {
     const load = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
+      if (!user) { router.replace(MARKETPLACE_ROUTE); return; }
 
       const [{ data, error }, messagesEnabled] = await Promise.all([
         supabase

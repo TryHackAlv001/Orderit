@@ -16,7 +16,7 @@ import { ProductCard } from "@/components/product/ProductCard";
 import { useAuth } from "@/hooks/useAuth";
 import { loadMarketplaceProducts, type MarketplaceSearchResult } from "@/components/marketplace/marketplace-data";
 import { createClient } from "@/lib/supabase/client";
-import { isBuyerOrderInProgress } from "@/lib/buyer-orders";
+import { getBuyerInProgressOrderStatuses } from "@/lib/buyer-orders";
 
 const FEED_PAGE_SIZE = 12;
 
@@ -138,22 +138,27 @@ export default function ProfileHub() {
     setHubLoading(true);
 
     const loadHubData = async () => {
-      const [buyerOrdersResult, vendorOrdersResult, vendorResult] = await Promise.all([
+      const [buyerOrdersResult, inProgressCountResult, vendorOrdersResult, vendorResult] = await Promise.all([
         supabase.from("orders").select("id,status").eq("buyer_id", user.id),
+        supabase.from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("buyer_id", user.id)
+          .in("status", [...getBuyerInProgressOrderStatuses()]),
         supabase.from("orders").select("id,status").eq("vendor_id", user.id),
         supabase.from("vendor_profiles").select("user_id").eq("user_id", user.id).maybeSingle(),
       ]);
       if (!active) return;
       if (buyerOrdersResult.error) console.error("Unable to load buyer order history:", buyerOrdersResult.error.message);
+      if (inProgressCountResult.error) console.error("Unable to count in-progress buyer orders:", inProgressCountResult.error.message);
       if (vendorOrdersResult.error) console.error("Unable to load vendor orders:", vendorOrdersResult.error.message);
       if (vendorResult.error) console.error("Unable to load vendor account:", vendorResult.error.message);
 
       const buyerOrders = buyerOrdersResult.data ?? [];
       const vendorOrders = vendorOrdersResult.data ?? [];
       const nextData: HubData = {
-        inProgressOrders: buyerOrdersResult.error
+        inProgressOrders: inProgressCountResult.error
           ? null
-          : buyerOrders.filter((order) => isBuyerOrderInProgress(order.status)).length,
+          : inProgressCountResult.count ?? 0,
         unreadCount: 0,
         awaitingReviews: user.role === "vendor" ? null : buyerOrdersResult.error ? null : 0,
         hasVendorAccount: Boolean(vendorResult.data),

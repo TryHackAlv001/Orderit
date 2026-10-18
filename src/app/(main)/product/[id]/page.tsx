@@ -529,6 +529,7 @@ export default function ProductDetailPage() {
               <MessageVendorButton
                 vendorUserId={product.vendor.userId}
                 vendorName={product.vendor.shop_name}
+                productId={product.id}
                 className="flex-1"
               />
             )}
@@ -710,6 +711,7 @@ export default function ProductDetailPage() {
                       <MessageVendorButton
                         vendorUserId={product.vendor.userId}
                         vendorName={product.vendor.shop_name}
+                        productId={product.id}
                         className="flex-1"
                       />
                       <Button variant="outline" className="flex-1">

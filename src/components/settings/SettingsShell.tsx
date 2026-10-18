@@ -22,15 +22,15 @@ export function SettingsShell({
   return (
     <div className="mx-auto w-full max-w-[640px]">
       <header className={`relative flex min-h-14 items-center justify-center border-b border-border bg-bg px-14 ${hasFloatingBackButton ? "" : "pt-[var(--safe-top)]"} ${hasFloatingBackButton ? "md:mt-0" : "md:mt-2"} md:border-0 md:pt-0`}>
-        {!hasFloatingBackButton && (
-          <Link
-            href={backHref}
-            aria-label="Back"
-            className="absolute left-0 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-          </Link>
-        )}
+        <Link
+          href={backHref}
+          aria-label="Back"
+          className={`absolute left-0 min-h-11 min-w-11 items-center justify-center rounded-full text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            hasFloatingBackButton ? "hidden md:inline-flex" : "inline-flex"
+          }`}
+        >
+          <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+        </Link>
         <h1 className="truncate text-lg font-semibold text-text">{title}</h1>
       </header>
       <div className="pb-[calc(var(--space-4)+var(--safe-bottom))] md:pb-8">{children}</div>

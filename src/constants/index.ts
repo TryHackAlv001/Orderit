@@ -98,6 +98,25 @@ export const CURRENCY_OPTIONS: CurrencyOption[] = [
 
 export const DEFAULT_CURRENCY = "NGN";
 
+export const MARKETPLACE_ROUTE = "/marketplace";
+
+export const PROTECTED_ROUTE_PREFIXES = [
+  "/admin",
+  "/buyer",
+  "/vendor/dashboard",
+  "/vendor/inventory",
+  "/vendor/notifications",
+  "/vendor/onboarding",
+  "/vendor/orders",
+  "/vendor/products",
+  "/vendor/profile",
+  "/vendor/returns",
+  "/vendor/settings",
+  "/settings",
+  "/checkout",
+  "/messages",
+] as const;
+
 export const MOBILE_LAYOUT = {
   bottomNavHeight: "var(--bottom-nav-height)",
   floatingBackSize: "var(--floating-back-size)",
@@ -120,14 +139,14 @@ export function isMobileBottomNavHidden(pathname: string) {
 }
 
 export const NO_TOP_NAV_ROUTE_PREFIXES = [
-  "/buyer/orders",
-  "/settings",
-  "/buyer/profile",
-  "/checkout",
+  { prefix: "/buyer/orders", hideBelow: "md" },
+  { prefix: "/settings", hideAlways: true },
+  { prefix: "/buyer/profile", hideAlways: true },
+  { prefix: "/checkout", hideAlways: true },
 ] as const;
 
 export const FLOATING_BACK_BUTTON_CONFIG = {
-  routePrefixes: NO_TOP_NAV_ROUTE_PREFIXES,
+  routePrefixes: NO_TOP_NAV_ROUTE_PREFIXES.map(({ prefix }) => prefix),
   excludedRoutes: ["/buyer/profile", "/checkout/verify"] as const,
   parentRoutes: {
     buyerOrders: "/buyer/profile",
@@ -143,8 +162,20 @@ function matchesRoutePrefix(pathname: string, routePrefix: string) {
   return pathname === routePrefix || pathname.startsWith(`${routePrefix}/`);
 }
 
+export function isProtectedRoute(pathname: string) {
+  return PROTECTED_ROUTE_PREFIXES.some((route) =>
+    matchesRoutePrefix(pathname, route),
+  );
+}
+
+export function getNoTopNavRoute(pathname: string) {
+  return NO_TOP_NAV_ROUTE_PREFIXES.find(({ prefix }) =>
+    matchesRoutePrefix(pathname, prefix),
+  );
+}
+
 export function isNoTopNavRoute(pathname: string) {
-  return NO_TOP_NAV_ROUTE_PREFIXES.some((route) => matchesRoutePrefix(pathname, route));
+  return !!getNoTopNavRoute(pathname);
 }
 
 export function isFloatingBackButtonRoute(pathname: string) {
@@ -179,7 +210,7 @@ export const MARKETPLACE_ANNOUNCEMENTS = [
 ] as const;
 
 export const HOME_HERO_COPY = {
-  tagline: "Shop the season's best",
+  tagline: "Shop products from independent sellers",
   heading: "Explore products",
 } as const;
 

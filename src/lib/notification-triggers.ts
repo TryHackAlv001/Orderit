@@ -1,4 +1,5 @@
 import { createNotification } from './notifications';
+import { ORDER_STATUS_LABELS } from '@/constants/order-status';
 
 /**
  * Notification trigger functions to be called from API routes
@@ -11,9 +12,6 @@ import { createNotification } from './notifications';
  * // In an order status update API route:
  * await notifyBuyerOrderStatusChange(buyerId, orderId, 'shipped', vendorName);
  *
- * // In a message creation API route:
- * await notifyNewMessage(recipientId, senderName, conversationId, true);
- *
  * // In a review creation API route:
  * await notifyVendorNewReview(vendorId, productName, reviewerName, productId);
  */
@@ -24,7 +22,7 @@ import { createNotification } from './notifications';
 export async function notifyVendorNewOrder(vendorId: string, orderId: string, buyerName: string) {
   await createNotification({
     userId: vendorId,
-    title: 'New Order Received',
+    title: 'New order received',
     body: `${buyerName} placed a new order with you.`,
     type: 'order',
     link: `/vendor/orders/${orderId}`,
@@ -48,28 +46,10 @@ export async function notifyBuyerOrderStatusChange(
 
   await createNotification({
     userId: buyerId,
-    title: 'Order Status Updated',
-    body: `${vendorName} has ${statusMessages[status]}.`,
+    title: ORDER_STATUS_LABELS[status],
+    body: `${vendorName} ${statusMessages[status]}.`,
     type: 'order',
     link: `/orders/${orderId}`,
-  });
-}
-
-/**
- * Trigger notification for new message received
- */
-export async function notifyNewMessage(
-  recipientId: string,
-  senderName: string,
-  conversationId: string,
-  isOrderRelated: boolean = false
-) {
-  await createNotification({
-    userId: recipientId,
-    title: 'New Message',
-    body: `You have a new message from ${senderName}${isOrderRelated ? ' about your order' : ''}.`,
-    type: 'message',
-    link: `/messages?conversation=${conversationId}`,
   });
 }
 
@@ -102,7 +82,7 @@ export async function notifyBuyerOrderCancelled(
 ) {
   await createNotification({
     userId: buyerId,
-    title: 'Order Cancelled',
+    title: ORDER_STATUS_LABELS.cancelled,
     body: `${vendorName} cancelled your order${reason ? `: ${reason}` : ''}.`,
     type: 'order',
     link: `/orders/${orderId}`,
@@ -120,7 +100,7 @@ export async function notifyVendorOrderCancelled(
 ) {
   await createNotification({
     userId: vendorId,
-    title: 'Order Cancelled',
+    title: ORDER_STATUS_LABELS.cancelled,
     body: `${buyerName} cancelled their order${reason ? `: ${reason}` : ''}.`,
     type: 'order',
     link: `/vendor/orders/${orderId}`,

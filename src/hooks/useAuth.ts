@@ -4,8 +4,11 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/store/authStore";
 import type { AuthProfile, User, VendorProfile } from "@/types";
+import { useRouter } from "next/navigation";
+import { signOutAndRedirect } from "@/lib/sign-out";
 
 export function useAuth() {
+  const router = useRouter();
   const { user, profile, setUser, setProfile, clearAuth } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -159,10 +162,7 @@ export function useAuth() {
   };
 
   const signOut = async () => {
-    setIsLoading(true);
-    await createClient().auth.signOut();
-    clearAuth();
-    setIsLoading(false);
+    await signOutAndRedirect(router);
   };
 
   const resetPassword = async (email: string) => {

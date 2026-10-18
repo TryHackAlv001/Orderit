@@ -1,7 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import { OrderTimeline } from "@/components/order/OrderTimeline";
 import { statusLabel, statusColor } from "@/lib/order-status";
 import { ReturnRequestPanel, type ReturnRequestView } from "@/components/returns/ReturnRequestPanel";
+import { FLOATING_BACK_BUTTON_CONFIG } from "@/constants";
 
 export default async function OrderDetailPage({ params }: { params: { orderId: string } }) {
   const supabase = createSupabaseServerClient();
@@ -40,7 +42,15 @@ export default async function OrderDetailPage({ params }: { params: { orderId: s
     : order.delivery_address?.address || JSON.stringify(order.delivery_address, null, 2);
 
   return (
-    <div className="min-w-0 space-y-6 px-0 pb-6 pt-0 md:px-4">
+    <div className="min-w-0 flex flex-col gap-6 px-0 pb-6 pt-0 md:px-4">
+      <nav className="hidden text-sm md:block" aria-label="Breadcrumb">
+        <Link
+          href={FLOATING_BACK_BUTTON_CONFIG.parentRoutes.buyerOrderDetail}
+          className="font-medium text-accent-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Orders
+        </Link>
+      </nav>
       <div className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>

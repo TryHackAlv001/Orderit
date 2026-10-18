@@ -16,6 +16,7 @@ interface CartState {
   removeItem: (id: string) => void;
   removeProducts: (productIds: string[]) => void;
   clearCart: () => void;
+  clearSignedInItems: (userId?: string) => void;
 }
 
 export function getCartLineId(item: Pick<CartItem, "product" | "variant_id" | "needs_selection" | "selected_size">) {
@@ -108,6 +109,13 @@ export const useCartStore = create<CartState>()(
         }));
       },
       clearCart: () => set({ items: [] }),
+      clearSignedInItems: (userId) => set((state) => ({
+        items: state.items.filter((item) =>
+          userId
+            ? item.synced_user_id !== userId && !item.database_id
+            : !item.synced_user_id && !item.database_id,
+        ),
+      })),
     }),
     {
       name: "cart-storage",

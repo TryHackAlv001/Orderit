@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { VendorOrderActions } from "@/components/vendor/VendorOrderActions";
+import { VendorOrderTrackingActions, type VendorOrderUpdate } from "@/components/vendor/VendorOrderTrackingActions";
 import { OrderTimeline } from "@/components/order/OrderTimeline";
 import { statusLabel, statusColor } from "@/lib/order-status";
+import { MARKETPLACE_ROUTE } from "@/constants";
 
 interface OrderItemRow {
   id: string;
@@ -28,6 +29,14 @@ interface VendorOrderDetail {
   delivery_address: any;
   created_at: string;
   buyer_name: string;
+  courier_name: string | null;
+  rider_name: string | null;
+  rider_phone: string | null;
+  tracking_number: string | null;
+  tracking_url: string | null;
+  estimated_delivery_at: string | null;
+  delivered_at: string | null;
+  cancellation_reason: string | null;
   order_items: OrderItemRow[];
 }
 
@@ -36,9 +45,6 @@ export default function VendorOrderDetailPage() {
   const params = useParams();
   const orderId = params?.id;
   const [order, setOrder] = useState<VendorOrderDetail | null>(null);
-  const [riderName, setRiderName] = useState("");
-  const [riderPhone, setRiderPhone] = useState("");
-  const [savingRider, setSavingRider] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [buyerDetailsError, setBuyerDetailsError] = useState<string | null>(null);
@@ -54,7 +60,7 @@ export default function VendorOrderDetailPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/login");
+        router.replace(MARKETPLACE_ROUTE);
         return;
       }
 
@@ -65,7 +71,7 @@ export default function VendorOrderDetailPage() {
         .single();
 
       if (userError || !userRecord || userRecord.role !== "vendor") {
-        router.push("/marketplace");
+        router.replace(MARKETPLACE_ROUTE);
         return;
       }
 
@@ -77,7 +83,7 @@ export default function VendorOrderDetailPage() {
         .single();
 
       if (vpError || !vp) {
-        router.push("/marketplace");
+        router.replace(MARKETPLACE_ROUTE);
         return;
       }
 
@@ -95,7 +101,15 @@ export default function VendorOrderDetailPage() {
           payment_method,
           payment_status,
           delivery_address,
-          created_at
+          created_at,
+          courier_name,
+          rider_name,
+          rider_phone,
+          tracking_number,
+          tracking_url,
+          estimated_delivery_at,
+          delivered_at,
+          cancellation_reason
         `)
         .eq("id", orderId)
         .eq("vendor_id", vendorId)
@@ -136,6 +150,14 @@ export default function VendorOrderDetailPage() {
         delivery_address: data.delivery_address,
         created_at: data.created_at,
         buyer_name: buyer?.full_name || buyer?.email || "Buyer",
+        courier_name: data.courier_name,
+        rider_name: data.rider_name,
+        rider_phone: data.rider_phone,
+        tracking_number: data.tracking_number,
+        tracking_url: data.tracking_url,
+        estimated_delivery_at: data.estimated_delivery_at,
+        delivered_at: data.delivered_at,
+        cancellation_reason: data.cancellation_reason,
         order_items: (items || []).map((item: any) => ({
           id: item.id,
           product_name: item.product_name,
@@ -276,47 +298,93 @@ export default function VendorOrderDetailPage() {
         <div className="space-y-6">
           <section className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-text">Order actions</h2>
-            <p className="mt-2 text-sm text-muted">Update this order as it progresses through your kitchen and delivery.</p>
+            <p className="mt-2 text-sm text-muted">Update this order as you prepare and ship it.</p>
             <div className="mt-6">
-              <VendorOrderActions
+              <VendorOrderTrackingActions
                 orderId={order.id}
                 status={order.status}
                 buyerId={order.buyer_id}
-                onStatusChange={(newStatus) => setOrder({ ...order, status: newStatus })}
+                onStatusChange={(newStatus, updatedOrder) => setOrder((current) => {
+                  if (!current) return current;
+                  const update: VendorOrderUpdate | undefined = updatedOrder;
+                  return {
+                    ...current,
+                    status: newStatus,
+                    courier_name: update?.courier_name !== undefined ? update.courier_name : current.courier_name,
+                    rider_name: update?.rider_name !== undefined ? update.rider_name : current.rider_name,
+                    rider_phone: update?.rider_phone !== undefined ? update.rider_phone : current.rider_phone,
+                    tracking_number: update?.tracking_number !== undefined ? update.tracking_number : current.tracking_number,
+                    tracking_url: update?.tracking_url !== undefined ? update.tracking_url : current.tracking_url,
+                    estimated_delivery_at: update?.estimated_delivery_at !== undefined ? update.estimated_delivery_at : current.estimated_delivery_at,
+                    delivered_at: update?.delivered_at !== undefined ? update.delivered_at : current.delivered_at,
+                    cancellation_reason: update?.cancellation_reason !== undefined ? update.cancellation_reason : current.cancellation_reason,
+                  };
+                })}
               />
             </div>
           </section>
 
-          <section className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
-            <h2 className="text-lg font-semibold text-text">Assign Dispatch Rider</h2>
-            <p className="mt-2 text-sm text-muted">Provide the rider's name and phone for this order.</p>
-            <div className="mt-4 space-y-3">
-              <input value={riderName} onChange={(e) => setRiderName(e.target.value)} placeholder="Rider name" className="w-full rounded-md border border-border px-3 py-2" />
-              <input value={riderPhone} onChange={(e) => setRiderPhone(e.target.value)} placeholder="Rider phone" className="w-full rounded-md border border-border px-3 py-2" />
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={async () => {
-                  if (!riderName && !riderPhone) return;
-                  setSavingRider(true);
-                  try {
-                    const res = await fetch(`/api/vendor/orders/${order.id}/assign-rider`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ name: riderName, phone: riderPhone }),
-                    });
-                    const payload = await res.json();
-                    if (!res.ok) throw new Error(payload.error || "Failed to save");
-                    // success
-                    setRiderName(""); setRiderPhone("");
-                    router.refresh();
-                    alert("Rider assigned");
-                  } catch (err) {
-                    console.error(err);
-                    alert(err instanceof Error ? err.message : "Failed to assign rider");
-                  } finally { setSavingRider(false); }
-                }} className="rounded-full bg-accent px-4 py-2 text-accent-on">{savingRider ? "Saving..." : "Save"}</button>
-              </div>
-            </div>
-          </section>
+          {(order.courier_name || order.rider_name || order.tracking_number || order.tracking_url || order.estimated_delivery_at || order.cancellation_reason) && (
+            <section className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
+              <h2 className="text-lg font-semibold text-text">Delivery tracking</h2>
+              <dl className="mt-4 grid min-w-0 gap-4 text-sm sm:grid-cols-2">
+                {order.courier_name && (
+                  <div className="min-w-0">
+                    <dt className="text-muted">Courier</dt>
+                    <dd className="mt-1 break-words text-text">{order.courier_name}</dd>
+                  </div>
+                )}
+                {order.rider_name && (
+                  <div className="min-w-0">
+                    <dt className="text-muted">Rider</dt>
+                    <dd className="mt-1 break-words text-text">{order.rider_name}</dd>
+                  </div>
+                )}
+                {order.rider_phone && (
+                  <div className="min-w-0">
+                    <dt className="text-muted">Rider phone</dt>
+                    <dd className="mt-1 break-words text-text">{order.rider_phone}</dd>
+                  </div>
+                )}
+                {order.tracking_number && (
+                  <div className="min-w-0">
+                    <dt className="text-muted">Tracking number</dt>
+                    <dd className="mt-1 break-all text-text">{order.tracking_number}</dd>
+                  </div>
+                )}
+                {order.tracking_url && (
+                  <div className="min-w-0">
+                    <dt className="text-muted">Tracking link</dt>
+                    <dd className="mt-1 min-w-0">
+                      <a href={order.tracking_url} target="_blank" rel="noreferrer" className="break-all text-accent-text underline underline-offset-2">
+                        {order.tracking_url}
+                      </a>
+                    </dd>
+                  </div>
+                )}
+                {order.estimated_delivery_at && (
+                  <div className="min-w-0">
+                    <dt className="text-muted">Estimated delivery</dt>
+                    <dd className="mt-1 break-words text-text">
+                      {new Date(order.estimated_delivery_at).toLocaleString("en-NG", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </dd>
+                  </div>
+                )}
+                {order.cancellation_reason && (
+                  <div className="min-w-0 sm:col-span-2">
+                    <dt className="text-muted">Cancellation reason</dt>
+                    <dd className="mt-1 break-words text-text">{order.cancellation_reason}</dd>
+                  </div>
+                )}
+              </dl>
+            </section>
+          )}
 
           <section className="rounded-lg border border-border bg-surface p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-text">Payment & delivery</h2>

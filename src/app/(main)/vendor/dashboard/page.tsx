@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { MARKETPLACE_ROUTE } from "@/constants";
 
 type Order = {
   id: string;
@@ -20,6 +22,7 @@ type ProductLowStock = {
 
 export default function VendorDashboardPage() {
   const router = useRouter();
+  const { isLoading: authLoading } = useAuth();
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
 
@@ -34,13 +37,14 @@ export default function VendorDashboardPage() {
   const [incompleteProducts, setIncompleteProducts] = useState(0);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
-      router.push("/login");
+      router.replace(MARKETPLACE_ROUTE);
       return;
     }
 
     if (user.role !== "vendor") {
-      router.push("/marketplace");
+      router.replace(MARKETPLACE_ROUTE);
       return;
     }
 
@@ -130,7 +134,7 @@ export default function VendorDashboardPage() {
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, router]);
+  }, [authLoading, user, router]);
 
   const statusColor = (status: string) => {
     switch (status) {

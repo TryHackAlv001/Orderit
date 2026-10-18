@@ -5,13 +5,14 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { getBuyerInProgressOrderStatuses } from "@/lib/buyer-orders";
 import { statusLabel, statusColor } from "@/lib/order-status";
 import { ShoppingBag, CreditCard, Clock, CheckCircle } from "lucide-react";
 
 interface BuyerStats {
   totalOrders: number;
   totalSpent: number;
-  pendingOrders: number;
+  inProgressOrders: number;
   deliveredOrders: number;
 }
 
@@ -62,22 +63,31 @@ async function getBuyerStats(userId: string): Promise<BuyerStats> {
   const supabase = createSupabaseServerClient();
 
   // Get total orders and spent
-  const { data: orders, error } = await supabase
-    .from("orders")
-    .select("total, status")
-    .eq("buyer_id", userId);
+  const [ordersResult, inProgressCountResult] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("total, status")
+      .eq("buyer_id", userId),
+    supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("buyer_id", userId)
+      .in("status", [...getBuyerInProgressOrderStatuses()]),
+  ]);
 
-  if (error) {
-    console.error("Error fetching orders:", error);
-    return { totalOrders: 0, totalSpent: 0, pendingOrders: 0, deliveredOrders: 0 };
+  if (ordersResult.error || inProgressCountResult.error) {
+    if (ordersResult.error) console.error("Error fetching orders:", ordersResult.error);
+    if (inProgressCountResult.error) console.error("Error counting in-progress orders:", inProgressCountResult.error);
+    return { totalOrders: 0, totalSpent: 0, inProgressOrders: 0, deliveredOrders: 0 };
   }
 
+  const orders = ordersResult.data;
   const totalOrders = orders?.length || 0;
   const totalSpent = orders?.reduce((sum, order) => sum + Number(order.total), 0) || 0;
-  const pendingOrders = orders?.filter(order => ["pending", "confirmed", "shipped", "out_for_delivery"].includes(order.status)).length || 0;
+  const inProgressOrders = inProgressCountResult.count ?? 0;
   const deliveredOrders = orders?.filter(order => order.status === "delivered").length || 0;
 
-  return { totalOrders, totalSpent, pendingOrders, deliveredOrders };
+  return { totalOrders, totalSpent, inProgressOrders, deliveredOrders };
 }
 
 async function getRecentOrders(userId: string): Promise<RecentOrder[]> {
@@ -186,8 +196,8 @@ export default async function BuyerDashboard() {
           icon={<CreditCard className="w-5 h-5 text-text" />}
         />
         <StatsCard
-          title="Pending Orders"
-          value={stats.pendingOrders.toString()}
+          title="In Progress Orders"
+          value={stats.inProgressOrders.toString()}
           icon={<Clock className="w-5 h-5 text-text" />}
         />
         <StatsCard

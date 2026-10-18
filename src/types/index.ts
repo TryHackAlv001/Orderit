@@ -123,10 +123,45 @@ export interface Message {
   id: string;
   sender_id: string;
   receiver_id: string;
-  order_id?: string;
+  order_id: string | null;
+  product_id: string | null;
+  product_snapshot: MessageProductSnapshot | null;
   content: string;
   is_read: boolean;
-  created_at: Date;
+  created_at: string;
+  read_at: string | null;
+  delivery_status?: "sending" | "failed";
+  send_error?: string;
+  product_context?: MessageProductContext | null;
+  order_context?: MessageOrderContext | null;
+}
+
+export interface MessageProductSnapshot {
+  product_id: string;
+  name: string;
+  image_url: string | null;
+  price_kobo: number;
+  captured_at: string;
+}
+
+export interface MessageProductContext {
+  id: string;
+  name: string;
+  images: string[];
+  price: number | null;
+  is_active: boolean;
+}
+
+export interface MessageOrderContext {
+  id: string;
+  status: string;
+  buyer_id: string;
+  vendor_id: string;
+  first_item: {
+    product_id: string | null;
+    product_name: string;
+    product_image: string | null;
+  } | null;
 }
 
 export interface MessageWithRelations extends Message {
@@ -172,7 +207,7 @@ export interface Notification {
   type?: string;
   is_read: boolean;
   link?: string;
-  created_at: Date;
+  created_at: string;
 }
 
 export interface CartItem {

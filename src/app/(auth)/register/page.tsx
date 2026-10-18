@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 type RegisterValues = {
   full_name: string;
@@ -55,7 +55,7 @@ export default function RegisterPage() {
     }
     if (activeRole === "vendor") {
       if (!values.shop_name || values.shop_name.length < 2) {
-        setError("shop_name", { message: "Kitchen name is required" });
+        setError("shop_name", { message: "Store name is required" });
         return;
       }
       if (!values.shop_description || values.shop_description.length < 10) {
@@ -91,7 +91,6 @@ export default function RegisterPage() {
 
   return (
     <main className="min-h-svh bg-bg">
-      <Toaster position="top-right" toastOptions={{ style: { background: "var(--surface-raised)", color: "var(--foreground)", border: "1px solid var(--border)", boxShadow: "var(--shadow-soft)" }, success: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } }, error: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } } }} />
       <div className="page-container min-h-svh justify-center py-12">
         <div className="grid gap-10 rounded-lg border border-border bg-surface p-8 shadow-sm sm:p-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">

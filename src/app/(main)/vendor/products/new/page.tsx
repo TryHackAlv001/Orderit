@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CatalogProductForm } from "@/components/vendor/CatalogProductForm";
 import type { CatalogOptions } from "@/lib/product-attributes";
+import { MARKETPLACE_ROUTE } from "@/constants";
 
 export default function NewVendorProductPage() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function NewVendorProductPage() {
       .catch((loadError: unknown) => {
         const message = loadError instanceof Error ? loadError.message : "Unable to load product options.";
         setError(message);
-        if (message === "Unauthorized") router.push("/login");
+        if (message === "Unauthorized") router.replace(MARKETPLACE_ROUTE);
       });
   }, [router]);
 

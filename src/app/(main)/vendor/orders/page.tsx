@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { statusLabel, statusColor } from "@/lib/order-status";
+import { VendorOrderTrackingActions } from "@/components/vendor/VendorOrderTrackingActions";
+import { ORDER_STATUS_LABELS } from "@/constants/order-status";
+import { MARKETPLACE_ROUTE } from "@/constants";
 
 interface VendorOrderRow {
   id: string;
@@ -21,8 +24,8 @@ const tabs = [
   { key: "all", label: "All" },
   { key: "pending", label: "Pending" },
   { key: "confirmed", label: "Confirmed" },
-  { key: "preparing", label: "Preparing" },
-  { key: "out_for_delivery", label: "Out for Delivery" },
+  { key: "preparing", label: ORDER_STATUS_LABELS.preparing },
+  { key: "out_for_delivery", label: ORDER_STATUS_LABELS.out_for_delivery },
   { key: "delivered", label: "Delivered" },
   { key: "cancelled", label: "Cancelled" },
 ];
@@ -51,7 +54,7 @@ export default function VendorOrdersPage() {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      router.push("/login");
+      router.replace(MARKETPLACE_ROUTE);
       return;
     }
 
@@ -62,7 +65,7 @@ export default function VendorOrdersPage() {
       .single();
 
     if (userError || !userRecord || userRecord.role !== "vendor") {
-      router.push("/marketplace");
+      router.replace(MARKETPLACE_ROUTE);
       return;
     }
 
@@ -74,7 +77,7 @@ export default function VendorOrdersPage() {
       .single();
 
     if (vpError || !vp) {
-      router.push("/marketplace");
+      router.replace(MARKETPLACE_ROUTE);
       return;
     }
 
@@ -139,31 +142,6 @@ export default function VendorOrdersPage() {
     loadOrders();
   }, [router]);
 
-  const performOrderAction = async (orderId: string, action: "confirm" | "ship" | "deliver" | "cancel") => {
-    try {
-      setLoading(true);
-      const options: any = { method: "POST", credentials: "same-origin" };
-      if (action === "ship") {
-        // default to preparing from list view
-        options.headers = { "Content-Type": "application/json" };
-        options.body = JSON.stringify({ status: "preparing" });
-      }
-
-      const resp = await fetch(`/api/vendor/orders/${orderId}/${action}`, options);
-
-      if (!resp.ok) {
-        const payload = await resp.json().catch(() => ({}));
-        setError(payload.error || `Failed to ${action} order`);
-      } else {
-        await loadOrders();
-      }
-    } catch (err) {
-      setError((err as Error).message || "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const filteredOrders = useMemo(() => {
     const filter = statusFilterMap[activeTab];
 
@@ -222,7 +200,7 @@ export default function VendorOrdersPage() {
           <p className="text-xl font-semibold text-text">No orders here yet.</p>
           <p className="mt-2">
             {activeTab === "preparing"
-              ? "Preparing orders are not available in this workflow yet."
+              ? "Orders in the packing stage are not available in this workflow yet."
               : "No orders match this stage."}
           </p>
         </div>
@@ -265,50 +243,21 @@ export default function VendorOrdersPage() {
                     .join(" · ")}
                 </p>
               )}
-              <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
+              <div className="mt-4 space-y-3 border-t border-border pt-3">
                 <button
                   type="button"
                   onClick={() => router.push(`/vendor/orders/${order.id}`)}
-                  className="min-h-10 rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold text-text transition hover:bg-bg"
+                  className="min-h-11 w-full rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-text transition hover:bg-bg"
                 >
                   View
                 </button>
-                {order.status === "pending" && (
-                  <button
-                    type="button"
-                    onClick={() => performOrderAction(order.id, "confirm")}
-                    className="min-h-10 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-on hover:bg-accent-hover"
-                  >
-                    Confirm
-                  </button>
-                )}
-                {order.status === "confirmed" && (
-                  <button
-                    type="button"
-                    onClick={() => performOrderAction(order.id, "ship")}
-                    className="min-h-10 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-on transition-colors duration-200 hover:brightness-95"
-                  >
-                    Mark as Preparing
-                  </button>
-                )}
-                {order.status === "preparing" && (
-                  <button
-                    type="button"
-                    onClick={() => performOrderAction(order.id, "ship")}
-                    className="min-h-10 rounded-full border border-warning/30 bg-warning/10 px-4 py-2 text-xs font-semibold text-text transition-colors duration-200 hover:bg-warning/20"
-                  >
-                    Out for Delivery
-                  </button>
-                )}
-                {(order.status === "out_for_delivery" || order.status === "shipped") && (
-                  <button
-                    type="button"
-                    onClick={() => performOrderAction(order.id, "deliver")}
-                    className="min-h-10 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-accent-on hover:bg-accent-hover"
-                  >
-                    Mark as Delivered
-                  </button>
-                )}
+                <VendorOrderTrackingActions
+                  orderId={order.id}
+                  status={order.status}
+                  onStatusChange={(newStatus) => setOrders((current) =>
+                    current.map((item) => item.id === order.id ? { ...item, status: newStatus } : item)
+                  )}
+                />
               </div>
             </article>
           ))}
@@ -348,50 +297,21 @@ export default function VendorOrdersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-4 text-muted">{new Date(order.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}</td>
-                  <td className="px-4 py-4 flex items-center gap-2">
+                  <td className="min-w-56 px-4 py-4">
                     <button
                       type="button"
                       onClick={() => router.push(`/vendor/orders/${order.id}`)}
-                      className="rounded-full border border-border bg-surface px-3 py-2 text-xs font-semibold text-text transition hover:bg-bg"
+                      className="mb-3 min-h-11 rounded-full border border-border bg-surface px-3 py-2 text-xs font-semibold text-text transition hover:bg-bg"
                     >
                       View
                     </button>
-                    {order.status === "pending" && (
-                      <button
-                        type="button"
-                        onClick={() => performOrderAction(order.id, "confirm")}
-                        className="rounded-full bg-accent px-3 py-2 text-xs font-semibold text-accent-on hover:bg-accent-hover"
-                      >
-                        Confirm
-                      </button>
-                    )}
-                    {order.status === "confirmed" && (
-                      <button
-                        type="button"
-                        onClick={() => performOrderAction(order.id, "ship")}
-                        className="rounded-md bg-accent px-3 py-2 text-xs font-semibold text-accent-on transition-colors duration-200 hover:brightness-95"
-                      >
-                        Mark as Preparing
-                      </button>
-                    )}
-                    {order.status === "preparing" && (
-                      <button
-                        type="button"
-                        onClick={() => performOrderAction(order.id, "ship")}
-                        className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-semibold text-text transition-colors duration-200 hover:bg-warning/20"
-                      >
-                        Out for Delivery
-                      </button>
-                    )}
-                    {(order.status === "out_for_delivery" || order.status === "shipped") && (
-                      <button
-                        type="button"
-                        onClick={() => performOrderAction(order.id, "deliver")}
-                        className="rounded-full bg-accent px-3 py-2 text-xs font-semibold text-accent-on hover:bg-accent-hover"
-                      >
-                        Mark as Delivered
-                      </button>
-                    )}
+                    <VendorOrderTrackingActions
+                      orderId={order.id}
+                      status={order.status}
+                      onStatusChange={(newStatus) => setOrders((current) =>
+                        current.map((item) => item.id === order.id ? { ...item, status: newStatus } : item)
+                      )}
+                    />
                   </td>
                 </tr>
               ))}

@@ -1,7 +1,7 @@
 # Payment Gateway Integration Summary
 
 ## Overview
-Successfully integrated both **Paystack** and **Flutterwave** payment gateways into the Naijamarket application with full transaction lifecycle support.
+Successfully integrated both **Paystack** and **Flutterwave** payment gateways into the Tradeloft application with full transaction lifecycle support.
 
 ## Files Created/Updated
 

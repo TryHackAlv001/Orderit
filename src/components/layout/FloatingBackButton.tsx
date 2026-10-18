@@ -179,7 +179,7 @@ export function FloatingBackButton() {
           type="button"
           aria-label="Go back"
           onClick={requestBack}
-          className="fixed left-3 z-floating-back inline-flex h-[var(--floating-back-size)] w-[var(--floating-back-size)] items-center justify-center rounded-full border border-border bg-surface text-text shadow-lg transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+          className="fixed left-3 z-floating-back inline-flex h-[var(--floating-back-size)] w-[var(--floating-back-size)] items-center justify-center rounded-full border border-border bg-surface text-text shadow-lg transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg md:hidden"
           style={{ top: "calc(var(--space-3) + var(--safe-top))", boxShadow: "var(--shadow-soft)" }}
         >
           <ChevronLeft className="h-5 w-5" aria-hidden="true" />

@@ -1,4 +1,4 @@
-This is the Tradeloft project, a general ecommerce marketplace built with [Next.js](https://nextjs.org). Tradeloft originated from the Orderit/FreshDrop food-edition codebase and now supports buyers and vendors across many categories.
+Tradeloft is a multi-vendor marketplace for buyers and sellers, built with [Next.js](https://nextjs.org).
 
 ## Categories
 
@@ -34,6 +34,8 @@ Apply the migrations in order using the Supabase SQL Editor (after the existing 
 The matching `.down.sql` files roll the additions back in reverse order. The catalog migration backfills existing products with an `Unspecified` brand and marks them incomplete; vendors can find them in **Vendor → Products → Complete missing details**. Incomplete products are excluded from marketplace search until they are fixed and republished. Category sizing is configured in `src/constants/sizes.ts`; products retain their current sizes on migration, while new vendor edits use the selected category's size system.
 
 The product and return photo upload APIs use the existing public `product-images` storage bucket. Keep `SUPABASE_SERVICE_ROLE_KEY` set only in the server environment (for example `.env.local` or the deployment secret store); never expose it through a `NEXT_PUBLIC_` variable.
+
+Apply the order-tracking migrations in numerical order: `020_order_delivery_tracking.sql`, `021_enforce_order_state_updates.sql`, `022_allow_vendor_order_confirmation.sql`, `023_order_status_history_to_status_compat.sql`, `024_order_status_notification_tracker.sql`, `025_order_item_color_snapshot.sql`, and `026_allow_cancellation_of_unpaid_legacy_orders.sql`. Adding a migration file to the repository does not apply it to Supabase; run each new migration in the SQL Editor for the project used by the app. Migration 023 adds a generated `to_status` column when the history table has the legacy `status` column and leaves databases that already have `to_status` unchanged. Migration 024 writes status history through the writable status column and includes a product name and tracker link in buyer status notifications. Migration 025 snapshots selected colors for new purchases; older purchases can only show a color if their saved variant still exists. Migration 026 allows vendors to cancel unpaid orders that are still pending, confirmed, or preparing; fulfillment remains restricted to paid orders.
 
 The return window defaults to 14 days. To configure it, run this SQL with the desired value:
 

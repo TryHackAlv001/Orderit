@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getMissingCatalogFields } from "@/lib/product-attributes";
+import { MARKETPLACE_ROUTE } from "@/constants";
 
 interface VendorProductRow {
   id: string;
@@ -38,7 +39,7 @@ export default function VendorProductsPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/login");
+        router.replace(MARKETPLACE_ROUTE);
         return;
       }
 
@@ -49,7 +50,7 @@ export default function VendorProductsPage() {
         .single();
 
       if (userError || !userRecord || userRecord.role !== "vendor") {
-        router.push("/marketplace");
+        router.replace(MARKETPLACE_ROUTE);
         return;
       }
 

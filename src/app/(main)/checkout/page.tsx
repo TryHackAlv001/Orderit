@@ -22,6 +22,12 @@ export default function CheckoutPage() {
 
   return (
     <section className="space-y-8">
+      <Link
+        href="/cart"
+        className="hidden min-h-11 items-center text-sm font-semibold text-accent-text hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:inline-flex"
+      >
+        Back to cart
+      </Link>
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold">Checkout</h1>
         <p className="text-muted">Complete your purchase with secure payment options.</p>

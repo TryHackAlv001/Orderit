@@ -108,7 +108,7 @@ export function StorefrontHeader({ vendor, isOwner }: StorefrontHeaderPropsWithO
 
               <div className="flex items-center gap-1">
                 <Package className="h-4 w-4" />
-                <span>{vendor.total_products} menu items</span>
+                <span>{vendor.total_products} products</span>
               </div>
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />

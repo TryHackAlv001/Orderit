@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { IN_PROGRESS_ORDER_STATUSES } from "@/lib/buyer-orders";
+import { getBuyerInProgressOrderStatuses } from "@/lib/buyer-orders";
 import { BuyerOrdersPage } from "./BuyerOrdersClient";
 
 interface Order {
@@ -46,16 +46,24 @@ async function getOrders(userId: string, showInProgressOnly: boolean) {
     `)
     .eq("buyer_id", userId);
   if (showInProgressOnly) {
-    query = query.in("status", [...IN_PROGRESS_ORDER_STATUSES]);
+    query = query.in("status", [...getBuyerInProgressOrderStatuses()]);
   }
-  const { data: orders, error } = await query.order("created_at", { ascending: false });
+  const [ordersResult, inProgressCountResult] = await Promise.all([
+    query.order("created_at", { ascending: false }),
+    supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("buyer_id", userId)
+      .in("status", [...getBuyerInProgressOrderStatuses()]),
+  ]);
 
-  if (error) {
-    console.error("Error fetching orders:", error);
-    return { orders: [] as Order[], error: true };
+  if (ordersResult.error || inProgressCountResult.error) {
+    if (ordersResult.error) console.error("Error fetching orders:", ordersResult.error);
+    if (inProgressCountResult.error) console.error("Error counting in-progress orders:", inProgressCountResult.error);
+    return { orders: [] as Order[], inProgressOrderCount: 0, error: true };
   }
 
-  const orderRows = (orders ?? []) as Omit<Order, "vendor">[];
+  const orderRows = (ordersResult.data ?? []) as Omit<Order, "vendor">[];
   const vendorIds = Array.from(new Set(orderRows.map((order) => order.vendor_id)));
   const vendorProfilesResult = vendorIds.length > 0
     ? await supabase
@@ -66,7 +74,7 @@ async function getOrders(userId: string, showInProgressOnly: boolean) {
 
   if (vendorProfilesResult.error) {
     console.error("Error fetching order vendor profiles:", vendorProfilesResult.error);
-    return { orders: [] as Order[], error: true };
+    return { orders: [] as Order[], inProgressOrderCount: 0, error: true };
   }
 
   const vendorProfiles = new Map(
@@ -78,16 +86,24 @@ async function getOrders(userId: string, showInProgressOnly: boolean) {
       ...order,
       vendor: vendorProfiles.get(order.vendor_id) ?? {},
     })),
+    inProgressOrderCount: inProgressCountResult.count ?? 0,
     error: false,
   };
 }
 
 export default async function OrdersPageWrapper({
   showInProgressOnly,
+  view,
 }: {
   showInProgressOnly: boolean;
+  view: "orders" | "items";
 }) {
   const userId = await requireAuthenticatedUser();
+
+  if (view === "items") {
+    return <BuyerOrdersPage orders={[]} error={false} showInProgressOnly={showInProgressOnly} view={view} />;
+  }
+
   const result = await getOrders(userId, showInProgressOnly);
 
   return (
@@ -95,6 +111,8 @@ export default async function OrdersPageWrapper({
       orders={result.orders}
       error={result.error}
       showInProgressOnly={showInProgressOnly}
+      inProgressOrderCount={result.inProgressOrderCount}
+      view={view}
     />
   );
 }

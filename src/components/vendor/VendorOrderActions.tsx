@@ -4,17 +4,18 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MessageCircle, Truck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { ORDER_STATUS_LABELS } from "@/constants/order-status";
 import toast from "react-hot-toast";
 
 const nextStatuses: Record<string, { value: string; label: string }[]> = {
-  pending: [{ value: "confirmed", label: "Confirmed" }],
-  confirmed: [{ value: "preparing", label: "Preparing" }],
+  pending: [{ value: "confirmed", label: ORDER_STATUS_LABELS.confirmed }],
+  confirmed: [{ value: "preparing", label: ORDER_STATUS_LABELS.preparing }],
   preparing: [
-    { value: "shipped", label: "Shipped" },
-    { value: "out_for_delivery", label: "Out for delivery" },
+    { value: "shipped", label: ORDER_STATUS_LABELS.shipped },
+    { value: "out_for_delivery", label: ORDER_STATUS_LABELS.out_for_delivery },
   ],
-  shipped: [{ value: "out_for_delivery", label: "Out for delivery" }],
-  out_for_delivery: [{ value: "delivered", label: "Delivered" }],
+  shipped: [{ value: "out_for_delivery", label: ORDER_STATUS_LABELS.out_for_delivery }],
+  out_for_delivery: [{ value: "delivered", label: ORDER_STATUS_LABELS.delivered }],
 };
 
 interface VendorOrderActionsProps {

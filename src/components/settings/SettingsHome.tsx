@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
   Bell,
@@ -19,8 +18,6 @@ import {
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
-import { useAuthStore } from "@/store/authStore";
-import { useCartStore } from "@/store/cartStore";
 import { SettingsLoadError, SettingsShell, SettingsSkeleton, SignOutDialog } from "./SettingsShell";
 import ThemePreferenceControl from "./ThemePreferenceControl";
 
@@ -71,10 +68,7 @@ function SecurityCard({ href, label, icon: Icon }: { href: string; label: string
 }
 
 export default function SettingsHome() {
-  const router = useRouter();
-  const { user, isLoading } = useAuth();
-  const clearAuth = useAuthStore((state) => state.clearAuth);
-  const clearCart = useCartStore((state) => state.clearCart);
+  const { user, isLoading, signOut } = useAuth();
   const [data, setData] = useState<SettingsData | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
@@ -117,24 +111,11 @@ export default function SettingsHome() {
     if (user) void loadSettings();
   }, [loadSettings, retry, user]);
 
-  useEffect(() => {
-    if (!isLoading && !user) router.replace("/login");
-  }, [isLoading, router, user]);
-
   const handleSignOut = async () => {
     setSigningOut(true);
-    const { error } = await createClient().auth.signOut();
-    if (error) {
-      toast.error(`Could not sign out: ${error.message}`);
-      setSigningOut(false);
-      return;
-    }
-    clearCart();
-    clearAuth();
-    window.localStorage.removeItem("auth-storage");
-    window.localStorage.removeItem("cart-storage");
+    await signOut();
     setSignOutOpen(false);
-    router.replace("/");
+    setSigningOut(false);
   };
 
   const shareTradeloft = async () => {

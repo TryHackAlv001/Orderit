@@ -1,4 +1,4 @@
--- Supabase schema for OrderIt multi-vendor e-commerce platform
+-- Supabase schema for the Tradeloft multi-vendor marketplace
 
 -- Enable pgcrypto for UUID generation
 create extension if not exists "pgcrypto";

@@ -9,10 +9,16 @@ import { MessageSquare } from 'lucide-react';
 interface MessageVendorButtonProps {
   vendorUserId: string;
   vendorName?: string;
+  productId?: string;
   className?: string;
 }
 
-export function MessageVendorButton({ vendorUserId, vendorName, className }: MessageVendorButtonProps) {
+export function MessageVendorButton({
+  vendorUserId,
+  vendorName,
+  productId,
+  className,
+}: MessageVendorButtonProps) {
   const router = useRouter();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -30,9 +36,10 @@ export function MessageVendorButton({ vendorUserId, vendorName, className }: Mes
       return;
     }
 
-    // Navigate to messages with ?with= parameter
+    const query = new URLSearchParams({ to: vendorUserId });
+    if (productId) query.set('product', productId);
     setIsLoading(true);
-    router.push(`/messages?with=${vendorUserId}`);
+    router.push(`/messages?${query}`);
   };
 
   return (

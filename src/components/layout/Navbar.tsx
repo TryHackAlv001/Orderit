@@ -44,8 +44,6 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
   const [openMenu, setOpenMenu] = useState<HeaderMenu>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchExamples, setSearchExamples] = useState<string[]>(PRODUCT_CATEGORIES);
-  const [searchExampleIndex, setSearchExampleIndex] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
@@ -64,7 +62,9 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
   useCart();
   const currencyCode = useCurrencyStore((state) => state.currency);
   const currency = getCurrencyOption(currencyCode);
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user?.id);
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(
+    authLoading ? undefined : user?.id,
+  );
   const isVendor = user?.role === "vendor";
   const accountHref = isVendor ? "/vendor/orders" : user ? "/buyer/orders" : "/login";
   const profileHref = isVendor ? "/vendor/profile" : "/buyer/profile";
@@ -179,30 +179,6 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
       closeMenu(true);
     }
   }, [pathname, closeMenu]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/products/suggestions", { signal: controller.signal })
-      .then(async (response) => {
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Unable to load search examples.");
-        setSearchExamples([...(result.suggestions ?? []), ...(result.categories ?? [])]);
-      })
-      .catch((error: unknown) => {
-        if (error instanceof Error && error.name === "AbortError") return;
-        console.error("Search placeholder examples failed:", error);
-      });
-
-    return () => controller.abort();
-  }, []);
-
-  useEffect(() => {
-    if (searchExamples.length < 2) return;
-    const interval = window.setInterval(() => {
-      setSearchExampleIndex((index) => (index + 1) % searchExamples.length);
-    }, 7000);
-    return () => window.clearInterval(interval);
-  }, [searchExamples]);
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -416,21 +392,19 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
               className="relative z-sticky w-full min-w-0 bg-transparent px-1 py-2 text-base text-text placeholder:text-transparent focus:outline-none sm:px-2 md:text-sm"
               type="search"
               aria-label="Search products and vendors"
-              placeholder={`Search ${searchExamples[searchExampleIndex] ?? "products"}...`}
+              placeholder="Search products"
               value={searchQuery}
               list="product-search-suggestions"
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
               onChange={(event) => setSearchQuery(event.target.value)}
             />
-            {!searchQuery && !searchFocused && searchExamples.length > 0 && (
+            {!searchQuery && !searchFocused && (
               <span
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-y-0 left-1 right-1 flex items-center overflow-hidden whitespace-nowrap text-ellipsis text-sm text-muted sm:left-2"
               >
-                <span key={searchExampleIndex} className="search-placeholder-enter">
-                  Search {searchExamples[searchExampleIndex]}...
-                </span>
+                <span>Search products</span>
               </span>
             )}
           </div>

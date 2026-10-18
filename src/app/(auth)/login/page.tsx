@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
+import { requestWelcomeToast } from "@/components/notifications/WelcomeToastListener";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,8 +24,22 @@ export default function LoginPage() {
     }
 
     try {
-      await signIn(email, password);
-      toast.success("Welcome back to Tradeloft!");
+      const { user } = await signIn(email, password);
+      let fullName = user?.user_metadata?.full_name;
+      if (user) {
+        const { data: profile, error } = await createClient()
+          .from("users")
+          .select("full_name")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Unable to load the welcome toast name:", error.message);
+        } else {
+          fullName = profile?.full_name ?? fullName;
+        }
+      }
+      requestWelcomeToast(fullName);
       router.refresh();
       router.push("/marketplace");
     } catch (error: any) {
@@ -33,7 +49,6 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-svh bg-bg">
-      <Toaster position="top-right" toastOptions={{ style: { background: "var(--surface-raised)", color: "var(--foreground)", border: "1px solid var(--border)", boxShadow: "var(--shadow-soft)" }, success: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } }, error: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } } }} />
       <div className="page-container min-h-svh justify-center py-12">
         <div className="mb-10 max-w-2xl rounded-lg border border-border bg-surface p-10 shadow-sm sm:p-12">
           <div className="mb-10 flex flex-col gap-3 text-center">

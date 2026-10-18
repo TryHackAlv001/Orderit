@@ -1,6 +1,6 @@
 # Review & Ratings System
 
-Complete implementation of a review and ratings system for the OrderIt marketplace.
+Complete implementation of a review and ratings system for the Tradeloft marketplace.
 
 ## Architecture
 

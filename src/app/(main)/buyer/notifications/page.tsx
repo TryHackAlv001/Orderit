@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, MessageSquare, Package, Settings, Star } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useAuthStore } from '@/store/authStore';
+import { MARKETPLACE_ROUTE } from '@/constants';
 import type { NotificationType } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/client';
 import { getMessageNotificationsEnabled } from '@/lib/user-preferences';
@@ -43,20 +46,22 @@ function getNotificationIcon(type: NotificationType) {
 }
 
 export default function BuyerNotificationsPage() {
-  const { user } = useAuthStore();
+  const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<'all' | 'unread' | 'orders' | 'messages'>('all');
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const { markAsRead } = useNotifications(user?.id);
 
   const limit = 20;
   const totalPages = Math.ceil(total / limit);
 
   const fetchNotifications = useCallback(async () => {
-    if (!user) return;
+    if (authLoading || !user || sessionExpired) return;
 
     setLoading(true);
     setLoadError(null);
@@ -76,7 +81,16 @@ export default function BuyerNotificationsPage() {
         params.set('type', 'message');
       }
 
-      const response = await fetch(`/api/notifications?${params}`);
+      const response = await fetch(`/api/notifications?${params}`, {
+        credentials: 'same-origin',
+      });
+      if (response.status === 401) {
+        setSessionExpired(true);
+        setNotifications([]);
+        setTotal(0);
+        setLoadError('Your session expired. Sign in again.');
+        return;
+      }
       if (!response.ok) throw new Error('Notifications could not be loaded.');
       const data = await response.json();
       const visibleNotifications = (data.notifications || []).filter(
@@ -95,11 +109,17 @@ export default function BuyerNotificationsPage() {
       setTotal(visibleTotal);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
-      setLoadError(error instanceof Error ? error.message : 'Notifications could not be loaded.');
+      setLoadError('Notifications could not be loaded.');
     } finally {
       setLoading(false);
     }
-  }, [filter, limit, page, user]);
+  }, [authLoading, filter, limit, page, sessionExpired, user]);
+
+  useEffect(() => {
+    if (!authLoading && !user && !sessionExpired) {
+      router.replace(MARKETPLACE_ROUTE);
+    }
+  }, [authLoading, router, sessionExpired, user]);
 
   useEffect(() => {
     fetchNotifications();
@@ -118,13 +138,7 @@ export default function BuyerNotificationsPage() {
     }
   };
 
-  if (!user) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <p>Please log in to view notifications.</p>
-      </div>
-    );
-  }
+  if (authLoading || (!user && !sessionExpired)) return null;
 
   return (
     <div className="space-y-6">
@@ -163,7 +177,11 @@ export default function BuyerNotificationsPage() {
         {loadError && (
           <div role="alert" className="rounded-lg border border-danger bg-danger/10 p-4 text-sm text-danger-text">
             <p>{loadError}</p>
-            <button type="button" onClick={() => void fetchNotifications()} className="mt-2 min-h-11 font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Try again</button>
+            {sessionExpired ? (
+              <Link href="/login" className="mt-2 inline-block min-h-11 font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Sign in again</Link>
+            ) : (
+              <button type="button" onClick={() => void fetchNotifications()} className="mt-2 min-h-11 font-semibold underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Try again</button>
+            )}
           </div>
         )}
         {loading ? (

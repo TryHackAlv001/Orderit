@@ -7,6 +7,7 @@ import { ImageUpload } from "@/components/ui/ImageUpload";
 import { StorefrontHeader } from "@/components/layout/StorefrontHeader";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
+import { MARKETPLACE_ROUTE } from "@/constants";
 
 const NIGERIAN_STATES = [
   'Lagos','Abuja','Kano','Rivers','Oyo','Anambra','Enugu','Kaduna','Katsina','Borno'
@@ -32,19 +33,19 @@ export default function VendorSettingsPage() {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData?.user?.id;
       if (!userId) {
-        router.push('/login');
+        router.replace(MARKETPLACE_ROUTE);
         return;
       }
 
       const { data: user } = await supabase.from('users').select('*').eq('id', userId).single();
       if (!user || user.role !== 'vendor') {
-        router.push('/marketplace');
+        router.replace(MARKETPLACE_ROUTE);
         return;
       }
 
       const { data: profile } = await supabase.from('vendor_profiles').select('*').eq('user_id', userId).single();
       if (!profile) {
-        router.push('/marketplace');
+        router.replace(MARKETPLACE_ROUTE);
         return;
       }
 

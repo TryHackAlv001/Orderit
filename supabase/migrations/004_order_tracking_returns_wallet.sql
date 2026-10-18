@@ -78,18 +78,25 @@ begin
     values (new.id, new.status, nullif(btrim(new.tracking_note), ''), auth.uid());
 
     notification_title := case new.status
-      when 'confirmed' then 'Order confirmed'
-      when 'preparing' then 'Order being prepared'
-      when 'shipped' then 'Order shipped'
+      when 'confirmed' then 'Confirmed'
+      when 'preparing' then 'Packing'
+      when 'shipped' then 'Shipped'
       when 'out_for_delivery' then 'Out for delivery'
-      when 'delivered' then 'Order delivered'
-      when 'cancelled' then 'Order cancelled'
+      when 'delivered' then 'Delivered'
+      when 'cancelled' then 'Cancelled'
       else 'Order status updated'
     end;
     notification_body := format(
-      'Order %s is now %s.%s',
-      left(new.id::text, 8),
-      replace(new.status, '_', ' '),
+      '%s.%s',
+      case new.status
+        when 'confirmed' then 'Your order is confirmed'
+        when 'preparing' then 'Your seller is packing your order'
+        when 'shipped' then 'Your order has shipped'
+        when 'out_for_delivery' then 'Your order is out for delivery'
+        when 'delivered' then 'Your order was delivered'
+        when 'cancelled' then 'Your order was cancelled'
+        else 'Your order status has been updated'
+      end,
       case when nullif(btrim(new.tracking_note), '') is null
         then '' else ' Note: ' || btrim(new.tracking_note) end
     );

@@ -15,7 +15,7 @@ export function Footer() {
           <div className="space-y-4">
             <h2 className="text-2xl font-semibold">Tradeloft</h2>
             <p className="max-w-lg text-sm text-muted">
-              Shop anything from verified local vendors with secure payments and fast delivery.
+              Browse products from independent sellers. Follow your orders and delivery updates from your account.
             </p>
             <div className="flex flex-wrap gap-3 text-sm text-muted">
               <Link href="/about" className="transition-colors duration-200 hover:text-text">About</Link>

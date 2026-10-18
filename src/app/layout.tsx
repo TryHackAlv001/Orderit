@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { Toaster } from "react-hot-toast";
+import { WelcomeToastListener } from "@/components/notifications/WelcomeToastListener";
 import "./globals.css";
 
 const inter = Inter({
@@ -18,8 +19,15 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Tradeloft - Shop Anything From Trusted Local Vendors",
-  description: "Shop electronics, fashion, food, beauty, jewelry, watches, and more from verified local vendors",
+  applicationName: "Tradeloft",
+  title: "Tradeloft | Shop Products from Independent Sellers",
+  description: "Browse products from independent sellers on Tradeloft.",
+  openGraph: {
+    title: "Tradeloft | Shop Products from Independent Sellers",
+    description: "Browse products from independent sellers on Tradeloft.",
+    siteName: "Tradeloft",
+    type: "website",
+  },
 };
 
 export const viewport: Viewport = {
@@ -45,29 +53,16 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${playfairDisplay.variable} font-sans antialiased`}>
         {children}
+        <WelcomeToastListener />
         <Toaster
           position="top-center"
-          containerClassName="app-toaster hidden md:block"
-          containerStyle={{ zIndex: "var(--z-toast)" }}
-          toastOptions={{
-            style: {
-              background: "var(--surface-raised)",
-              color: "var(--foreground)",
-              border: "1px solid var(--border)",
-              boxShadow: "var(--shadow-soft)",
-            },
-            success: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } },
-            error: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } },
-          }}
-        />
-        <Toaster
-          position="bottom-center"
-          containerClassName="app-toaster block md:hidden"
+          containerClassName="app-toaster"
           containerStyle={{
-            bottom: "calc(var(--bottom-nav-height) + var(--safe-bottom) + 12px)",
+            top: "calc(var(--safe-top) + 12px)",
             zIndex: "var(--z-toast)",
           }}
           toastOptions={{
+            ariaProps: { role: "status", "aria-live": "polite" },
             style: {
               background: "var(--surface-raised)",
               color: "var(--foreground)",

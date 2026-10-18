@@ -1,0 +1,4 @@
+drop index if exists public.idx_notifications_unread_by_user_created_at;
+drop index if exists public.idx_messages_unread_by_receiver_created_at;
+drop index if exists public.idx_messages_receiver_sender_created_at;
+drop index if exists public.idx_messages_sender_receiver_created_at;

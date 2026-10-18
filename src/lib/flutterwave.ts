@@ -100,7 +100,7 @@ export async function initializePayment(
           phone_number: customer?.phone || "",
         },
         customizations: {
-          title: "Naijamarket",
+          title: "Tradeloft",
           description: "Secure payment for your order",
           logo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/logo.png`,
         },

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/store/authStore';
@@ -11,6 +11,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import type { User, VendorProfile } from '@/types';
+import { MARKETPLACE_ROUTE } from '@/constants';
 
 export default function VendorProfilePage() {
   const router = useRouter();
@@ -50,7 +51,7 @@ export default function VendorProfilePage() {
         const userId = authData?.user?.id ?? user?.id;
 
         if (!userId) {
-          router.push('/login');
+          router.replace(MARKETPLACE_ROUTE);
           return;
         }
 
@@ -65,7 +66,7 @@ export default function VendorProfilePage() {
         }
 
         if (userRecord.role !== 'vendor') {
-          router.push('/marketplace');
+          router.replace(MARKETPLACE_ROUTE);
           return;
         }
 
@@ -210,7 +211,6 @@ export default function VendorProfilePage() {
 
   return (
     <div className="min-h-svh bg-bg py-10">
-      <Toaster position="top-right" toastOptions={{ style: { background: "var(--surface-raised)", color: "var(--foreground)", border: "1px solid var(--border)", boxShadow: "var(--shadow-soft)" }, success: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } }, error: { iconTheme: { primary: "var(--primary)", secondary: "var(--primary-foreground)" } } }} />
       <div className="mx-auto w-full max-w-6xl px-0 md:px-4">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>

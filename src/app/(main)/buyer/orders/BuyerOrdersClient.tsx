@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { statusLabel, statusColor } from "@/lib/order-status";
+import { ORDER_STATUS_LABELS } from "@/constants/order-status";
+import { PurchasedItemsList } from "@/components/order/PurchasedItemsList";
 
 interface Order {
   id: string;
@@ -25,12 +27,18 @@ export function BuyerOrdersPage({
   orders,
   error,
   showInProgressOnly,
+  inProgressOrderCount = 0,
+  view = "orders",
 }: {
   orders: Order[];
   error: boolean;
   showInProgressOnly: boolean;
+  inProgressOrderCount?: number;
+  view?: "orders" | "items";
 }) {
   const router = useRouter();
+  const displayedInProgressOrderCount = inProgressOrderCount;
+  const ordersHref = showInProgressOnly ? "/buyer/orders?filter=in_progress" : "/buyer/orders";
 
   return (
     <div className="min-w-0 space-y-6 px-0 pb-6 pt-0 md:px-4">
@@ -46,11 +54,36 @@ export function BuyerOrdersPage({
         </div>
       </div>
 
+      <nav className="grid grid-cols-2 rounded-lg border border-border bg-surface p-1" aria-label="Purchase views">
+        <Link
+          href={ordersHref}
+          aria-current={view === "orders" ? "page" : undefined}
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            view === "orders" ? "bg-accent text-accent-on" : "text-muted hover:bg-surface-raised"
+          }`}
+        >
+          Orders
+        </Link>
+        <Link
+          href="/buyer/orders?view=items"
+          aria-current={view === "items" ? "page" : undefined}
+          className={`flex min-h-11 items-center justify-center rounded-md px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            view === "items" ? "bg-accent text-accent-on" : "text-muted hover:bg-surface-raised"
+          }`}
+        >
+          Items
+        </Link>
+      </nav>
+
+      {view === "items" ? (
+        <PurchasedItemsList />
+      ) : (
+      <>
       <nav className="flex flex-wrap gap-2 border-b border-border" aria-label="Order filters">
         <Link
-          href="/buyer/orders?filter=all"
+          href="/buyer/orders"
           aria-current={!showInProgressOnly ? "page" : undefined}
-          className={`border-b-2 px-4 py-3 text-sm font-semibold ${
+          className={`min-h-11 border-b-2 px-4 py-3 text-sm font-semibold ${
             !showInProgressOnly ? "border-accent text-text" : "border-transparent text-muted"
           }`}
         >
@@ -59,14 +92,13 @@ export function BuyerOrdersPage({
         <Link
           href="/buyer/orders?filter=in_progress"
           aria-current={showInProgressOnly ? "page" : undefined}
-          className={`border-b-2 px-4 py-3 text-sm font-semibold ${
+          className={`min-h-11 border-b-2 px-4 py-3 text-sm font-semibold ${
             showInProgressOnly ? "border-accent text-text" : "border-transparent text-muted"
           }`}
         >
-          In progress
+          In progress ({displayedInProgressOrderCount})
         </Link>
       </nav>
-
       {error ? (
         <div role="alert" className="rounded-lg border border-danger/30 bg-danger/10 p-8 text-center">
           <p className="font-semibold text-danger-text">Your orders could not be loaded.</p>
@@ -86,7 +118,7 @@ export function BuyerOrdersPage({
           </p>
           <p className="mt-2">
             {showInProgressOnly
-              ? "Orders that are pending, confirmed, preparing, shipped, or out for delivery will appear here."
+              ? `Orders that are ${ORDER_STATUS_LABELS.pending.toLowerCase()}, ${ORDER_STATUS_LABELS.confirmed.toLowerCase()}, ${ORDER_STATUS_LABELS.preparing.toLowerCase()}, ${ORDER_STATUS_LABELS.shipped.toLowerCase()}, or ${ORDER_STATUS_LABELS.out_for_delivery.toLowerCase()} will appear here.`
               : "Your purchases will appear here."}
           </p>
         </div>
@@ -96,6 +128,8 @@ export function BuyerOrdersPage({
             <OrderRowWithCode key={order.id} order={order} />
           ))}
         </div>
+      )}
+      </>
       )}
     </div>
   );

@@ -1,19 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
-import { useAuthStore } from "@/store/authStore";
-import { useCartStore } from "@/store/cartStore";
+import { useRouter } from "next/navigation";
+import { signOutAndRedirect } from "@/lib/sign-out";
 import { PasswordChangeForm } from "./PasswordChangeForm";
 import { SettingsLoadError, SettingsSkeleton, SettingsShell } from "./SettingsShell";
 
 function AccountDeletion() {
   const router = useRouter();
-  const clearAuth = useAuthStore((state) => state.clearAuth);
-  const clearCart = useCartStore((state) => state.clearCart);
   const [confirmation, setConfirmation] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,12 +26,7 @@ function AccountDeletion() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "The account could not be deleted.");
-      await createClient().auth.signOut();
-      clearCart();
-      clearAuth();
-      window.localStorage.removeItem("auth-storage");
-      window.localStorage.removeItem("cart-storage");
-      router.replace("/");
+      await signOutAndRedirect(router);
       toast.success("Your account was deleted.");
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "The account could not be deleted.";

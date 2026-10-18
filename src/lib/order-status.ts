@@ -3,17 +3,10 @@
  * Provides consistent status labels and colors across the application
  */
 
+import { ORDER_STATUS_LABELS } from "@/constants/order-status";
+
 export const statusLabel = (status: string): string => {
-  const labels: Record<string, string> = {
-    pending: "Pending",
-    confirmed: "Confirmed",
-    preparing: "Preparing",
-    out_for_delivery: "Out for Delivery",
-    delivered: "Delivered",
-    cancelled: "Cancelled",
-    shipped: "Shipped",
-  };
-  return labels[status] ?? status;
+  return ORDER_STATUS_LABELS[status] ?? status;
 };
 
 export const statusColor = (status: string): string => {
@@ -36,7 +29,7 @@ export const statusIcon = (status: string) => {
     case "confirmed":
       return "✓";
     case "preparing":
-      return "👨‍🍳";
+      return "📦";
     case "out_for_delivery":
       return "🚗";
     case "shipped":

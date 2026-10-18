@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { isProtectedRoute, MARKETPLACE_ROUTE } from "@/constants";
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
@@ -21,27 +22,33 @@ const BUYER_PROTECTED_PREFIXES = [
   "/buyer/orders",
 ];
 
-const PROTECTED_ROUTE_PREFIXES = [
-  ...VENDOR_PROTECTED_PREFIXES,
-  ...BUYER_PROTECTED_PREFIXES,
-  "/settings",
-  "/checkout",
-  "/messages",
-];
+function preventProtectedPageCaching<T extends NextResponse>(response: T) {
+  response.headers.set("Cache-Control", "no-store, max-age=0, must-revalidate");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
+  return response;
+}
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  if (req.nextUrl.pathname === "/api/auth/signout") {
+    return NextResponse.next();
+  }
+
+  let res = NextResponse.next({ request: req });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
     {
       cookies: {
-        get: (name: string) => req.cookies.get(name)?.value,
-        set: (name: string, value: string, options: any) => {
-          res.cookies.set(name, value, options);
+        getAll() {
+          return req.cookies.getAll();
         },
-        remove: (name: string, options: any) => {
-          res.cookies.set(name, "", { ...options, maxAge: 0 });
+        setAll(cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }>) {
+          cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value));
+          res = NextResponse.next({ request: req });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            res.cookies.set(name, value, options),
+          );
         },
       },
     }
@@ -61,15 +68,16 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  const isProtected = PROTECTED_ROUTE_PREFIXES.some((prefix) =>
-    pathname.startsWith(prefix)
-  );
+  const isProtected = isProtectedRoute(pathname);
+  if (isProtected) {
+    preventProtectedPageCaching(res);
+  }
   const isAuthRoute = pathname === "/login" || pathname === "/register";
 
   if (isProtected && !session) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("redirectedFrom", pathname);
-    return NextResponse.redirect(loginUrl);
+    return preventProtectedPageCaching(NextResponse.redirect(loginUrl));
   }
 
   if (session) {
@@ -85,14 +93,18 @@ export async function middleware(req: NextRequest) {
       VENDOR_PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix)) &&
       userRole !== "vendor"
     ) {
-      return NextResponse.redirect(new URL("/marketplace", req.url));
+      return preventProtectedPageCaching(
+        NextResponse.redirect(new URL(MARKETPLACE_ROUTE, req.url)),
+      );
     }
 
     if (
       BUYER_PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix)) &&
       userRole !== "buyer"
     ) {
-      return NextResponse.redirect(new URL("/vendor/dashboard", req.url));
+      return preventProtectedPageCaching(
+        NextResponse.redirect(new URL("/vendor/dashboard", req.url)),
+      );
     }
   }
 

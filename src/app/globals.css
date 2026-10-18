@@ -238,7 +238,9 @@ textarea {
   .transition-transform,
   .transition-all,
   .search-placeholder-enter,
-  .cart-add-pulse {
+  .cart-add-pulse,
+  .app-toaster,
+  .app-toaster * {
     transition-duration: 0ms;
     animation: none;
   }
