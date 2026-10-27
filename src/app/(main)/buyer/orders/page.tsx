@@ -3,9 +3,13 @@ import OrdersPageWrapper from "./OrdersPage";
 export default function OrdersPage({
   searchParams,
 }: {
-  searchParams?: { filter?: string | string[]; view?: string | string[] };
+  searchParams?: { filter?: string | string[] };
 }) {
-  const showInProgressOnly = searchParams?.filter === "in_progress";
-  const view = searchParams?.view === "items" ? "items" : "orders";
-  return <OrdersPageWrapper showInProgressOnly={showInProgressOnly} view={view} />;
+  const filter = typeof searchParams?.filter === "string" ? searchParams.filter : "all";
+  const selectedFilter =
+    filter === "in_progress" || filter === "delivered" || filter === "cancelled"
+      ? filter
+      : "all";
+
+  return <OrdersPageWrapper filter={selectedFilter} />;
 }

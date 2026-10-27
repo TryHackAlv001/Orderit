@@ -49,9 +49,9 @@ export default function ClientSideProductGrid({ vendorId, products, isOwner = fa
       </div>
 
       {categories && categories.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto">
+        <div className="flex w-full max-w-full min-w-0 gap-3 overflow-x-auto">
           <button
-            className={`rounded-full px-4 py-2 text-sm ${!activeCategory ? 'bg-accent text-accent-on' : 'bg-surface-raised text-text'}`}
+            className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm ${!activeCategory ? 'bg-accent text-accent-on' : 'bg-surface-raised text-text'}`}
             onClick={() => setActiveCategory(null)}
           >
             All
@@ -59,7 +59,7 @@ export default function ClientSideProductGrid({ vendorId, products, isOwner = fa
           {categories.map((c) => (
             <button
               key={c.id}
-              className={`rounded-full px-4 py-2 text-sm ${activeCategory === c.id ? 'bg-accent text-accent-on' : 'bg-surface-raised text-text'}`}
+              className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm ${activeCategory === c.id ? 'bg-accent text-accent-on' : 'bg-surface-raised text-text'}`}
               onClick={() => setActiveCategory(c.id)}
             >
               {c.name}

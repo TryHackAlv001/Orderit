@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
+import { useMessagingSummary } from "@/hooks/useMessagingSummary";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Home, LayoutGrid, Menu, Package, ShoppingBag, ShoppingCart, User, X } from "lucide-react";
@@ -20,20 +21,17 @@ export function BottomNav() {
   const cartPulseVersion = useCartStore((state) => state.pulseVersion);
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { conversations, unreadCount: notificationUnreadCount } = useMessagingSummary();
+  const messageUnreadCount = conversations.reduce((count, conversation) => count + conversation.unreadCount, 0);
+  const menuUnreadCount = notificationUnreadCount + messageUnreadCount;
 
   useEffect(() => {
     const handleMenuState = (event: Event) => {
       setMenuOpen((event as CustomEvent<{ open: boolean }>).detail.open);
     };
-    const handleNotificationState = (event: Event) => {
-      setUnreadCount((event as CustomEvent<{ unreadCount: number }>).detail.unreadCount);
-    };
     window.addEventListener("navbar-navigation-state", handleMenuState);
-    window.addEventListener("navbar-notifications-state", handleNotificationState);
     return () => {
       window.removeEventListener("navbar-navigation-state", handleMenuState);
-      window.removeEventListener("navbar-notifications-state", handleNotificationState);
     };
   }, []);
 
@@ -102,7 +100,7 @@ export function BottomNav() {
         <button
           type="button"
           data-mobile-menu-trigger
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-label={`${menuOpen ? "Close" : "Open"} menu${menuUnreadCount > 0 ? `, ${menuUnreadCount} unread items` : ""}`}
           aria-controls="navbar-mobile-navigation-menu"
           aria-expanded={menuOpen}
           onClick={() => window.dispatchEvent(new Event("navbar-navigation-toggle"))}
@@ -112,9 +110,9 @@ export function BottomNav() {
         >
           <span className="relative">
             {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            {unreadCount > 0 && (
-              <span className="absolute -right-2 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[0.65rem] font-bold text-accent-on">
-                {unreadCount > 99 ? "99+" : unreadCount}
+            {menuUnreadCount > 0 && (
+              <span aria-hidden="true" className="absolute -right-2 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[0.65rem] font-bold text-accent-on">
+                {menuUnreadCount > 99 ? "99+" : menuUnreadCount}
               </span>
             )}
           </span>

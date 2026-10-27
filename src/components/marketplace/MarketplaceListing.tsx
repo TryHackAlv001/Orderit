@@ -388,7 +388,7 @@ function SearchContent() {
               ref={filterScrollRef}
               tabIndex={0}
               aria-label="Scrollable product filters"
-              className="flex gap-2 overflow-x-auto py-1 pr-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex w-full max-w-full min-w-0 gap-2 overflow-x-auto py-1 pr-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <button ref={filterTriggerRef} type="button" onClick={() => setMobileFiltersOpen(true)} className={`${filterPillClass} inline-flex items-center gap-2`}>
                 <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />

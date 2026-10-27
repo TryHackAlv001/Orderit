@@ -268,9 +268,9 @@ export default function ProductDetailPage() {
   return (
     <div className="space-y-8">
       {/* Main Product Section */}
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {/* Image Gallery */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {/* Main Image */}
           <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-surface-raised">
             {product.images[mainImage] ? (
@@ -297,12 +297,12 @@ export default function ProductDetailPage() {
 
           {/* Thumbnail Strip */}
           {product.images.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="flex w-full max-w-full min-w-0 gap-2 overflow-x-auto">
               {product.images.map((image, idx) => (
                 <button
                   key={idx}
                   onClick={() => setMainImage(idx)}
-                  className={`relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border transition-colors duration-200 ${
+                  className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-md border transition-colors duration-200 ${
                     mainImage === idx ? 'border-accent' : 'border-border'
                   } `}
                 >
@@ -320,18 +320,18 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Product Info */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Category Badge */}
           {product.category?.name && (
             <Badge className="w-fit border border-border bg-transparent text-muted">{product.category.name}</Badge>
           )}
 
           {/* Title and Vendor */}
-          <div>
-            <h1 className="break-words text-3xl font-bold text-text">{product.name}</h1>
+          <div className="min-w-0">
+            <h1 className="min-w-0 break-words text-3xl font-bold text-text">{product.name}</h1>
             <Link
               href={`/vendor/${product.vendor.id}`}
-              className="mt-2 block break-words text-accent-text transition-colors duration-200 hover:text-accent-text hover:underline"
+              className="mt-2 block min-w-0 break-words text-accent-text transition-colors duration-200 hover:text-accent-text hover:underline"
             >
               {product.vendor.shop_name}
               {product.vendor.is_verified && <Badge variant="success" className="ml-2">Verified</Badge>}
@@ -355,7 +355,7 @@ export default function ProductDetailPage() {
 
           {/* Price */}
           <div className="space-y-2">
-            <div className="flex min-w-0 flex-wrap items-baseline gap-3">
+            <div className="flex min-w-0 flex-wrap break-words items-baseline gap-3">
               <span className="min-w-0 break-words font-display text-3xl font-bold text-accent-text md:text-4xl">
                 {formatCurrency(product.price, currency.code, currency.locale)}
               </span>
@@ -558,7 +558,7 @@ export default function ProductDetailPage() {
               <button type="button" aria-label="Close size guide" onClick={() => setSizeGuideOpen(false)}
                 className="min-h-10 min-w-10 rounded-md bg-surface-raised text-lg text-text">×</button>
             </div>
-            <div className="mt-5 overflow-x-auto">
+            <div className="mt-5 w-full max-w-full min-w-0 overflow-x-auto">
               <table className="min-w-full text-left text-sm">
                 <tbody>
                   {sizeGuide.rows.map((row, index) => (
@@ -575,12 +575,12 @@ export default function ProductDetailPage() {
 
       {/* Tabs Section */}
       <div className="border-b border-border">
-        <div className="flex gap-8 overflow-x-auto">
+        <div className="flex w-full max-w-full min-w-0 flex-nowrap gap-8 overflow-x-auto">
           {['description', 'reviews', 'vendor'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`border-b-2 px-4 py-4 font-medium capitalize transition-colors duration-200 ${
+              className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-4 font-medium capitalize transition-colors duration-200 md:px-4 ${
                 activeTab === tab
                   ? 'border-accent text-accent-text'
                   : 'border-transparent text-muted hover:text-text'

@@ -64,13 +64,13 @@ export function ConversationList({
             <button
               key={conversation.otherUserId}
               onClick={() => onSelect(conversation.otherUserId)}
-              className={`flex w-full items-center justify-between gap-4 rounded-lg border px-4 py-4 text-left transition hover:border-border ${
+              className={`flex w-full min-w-0 items-center justify-between gap-4 rounded-lg border px-4 py-4 text-left transition hover:border-border ${
                 activeConversationId === conversation.otherUserId
                   ? "border-border bg-bg"
                   : "border-transparent bg-surface"
               }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-surface-raised text-sm font-semibold text-text">
                   <div className="relative">
                   {conversation.avatarUrl ? (

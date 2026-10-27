@@ -3,6 +3,7 @@ import Link from "next/link";
 import { OrderTimeline } from "@/components/order/OrderTimeline";
 import { statusLabel, statusColor } from "@/lib/order-status";
 import { ReturnRequestPanel, type ReturnRequestView } from "@/components/returns/ReturnRequestPanel";
+import { ContinuePaymentButton } from "@/components/checkout/ContinuePaymentButton";
 import { FLOATING_BACK_BUTTON_CONFIG } from "@/constants";
 
 export default async function OrderDetailPage({ params }: { params: { orderId: string } }) {
@@ -76,6 +77,12 @@ export default async function OrderDetailPage({ params }: { params: { orderId: s
               </div>
             </div>
           </div>
+
+          {order.status === "pending" &&
+            order.payment_status === "pending" &&
+            (order.payment_method === "pending" || order.payment_method === "paystack") && (
+              <ContinuePaymentButton orderId={order.id} />
+            )}
 
           <div className="min-w-0 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
             <h2 className="text-xl font-semibold text-text">Items</h2>

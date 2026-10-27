@@ -13,10 +13,12 @@ import { OnlinePresenceProvider } from "@/hooks/useOnlinePresence";
 import { MessagingSummaryProvider } from "@/hooks/useMessagingSummary";
 import {
   getNoTopNavRoute,
+  isFloatingMessageHiddenRoute,
   isFloatingBackButtonRoute,
   isMobileBottomNavHidden,
 } from "@/constants";
 import { FloatingBackButton } from "@/components/layout/FloatingBackButton";
+import { FloatingMessageButton } from "@/components/layout/FloatingMessageButton";
 import { createClient } from "@/lib/supabase/client";
 import {
   clearSignedOutClientState,
@@ -111,6 +113,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       ? "hidden md:block"
       : undefined;
   const showBottomNav = !!user && !isMobileBottomNavHidden(pathname ?? "");
+  const showFloatingMessageButton = !!user && !isFloatingMessageHiddenRoute(currentPath);
   const mainTopPadding = hasFloatingBackButton
     ? "pt-[calc(var(--floating-back-size)+var(--space-3)+var(--safe-top))] md:pt-0"
     : currentPath === "/buyer/profile"
@@ -141,6 +144,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                 <div className="page-content w-full flex-1">{children}</div>
               </main>
               {showFooter && <Footer />}
+              {showFloatingMessageButton && <FloatingMessageButton />}
               {showBottomNav && <BottomNav />}
             </div>
           </MessagingSummaryProvider>

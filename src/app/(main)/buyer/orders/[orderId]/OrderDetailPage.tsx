@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ContinuePaymentButton } from "@/components/checkout/ContinuePaymentButton";
 
 interface OrderDetail {
   id: string;
@@ -141,6 +142,10 @@ export default async function OrderDetailPageWrapper({
         <p className="text-sm text-muted">Status</p>
         <p className="mt-2 font-semibold text-text">{order.status}</p>
       </div>
+      {order.status === "pending" && order.payment_status === "pending" &&
+        (order.payment_method === "pending" || order.payment_method === "paystack") && (
+          <ContinuePaymentButton orderId={order.id} />
+        )}
     </div>
   );
 }

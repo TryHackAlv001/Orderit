@@ -341,7 +341,7 @@ export default function InventoryPage({ products: initialProducts, categories }:
 
       {/* Table */}
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="w-full max-w-full min-w-0 overflow-x-auto">
           <table className="w-full">
             <thead className="bg-bg border-b border-border">
               <tr>

@@ -140,9 +140,18 @@ export function isMobileBottomNavHidden(pathname: string) {
 
 export const NO_TOP_NAV_ROUTE_PREFIXES = [
   { prefix: "/buyer/orders", hideBelow: "md" },
+  { prefix: "/vendor/orders", hideBelow: "md" },
+  { prefix: "/vendor/returns", hideBelow: "md" },
   { prefix: "/settings", hideAlways: true },
   { prefix: "/buyer/profile", hideAlways: true },
   { prefix: "/checkout", hideAlways: true },
+] as const;
+
+export const FLOATING_MESSAGE_HIDDEN_ROUTES = [
+  "/settings",
+  "/buyer/profile",
+  "/checkout",
+  "/messages",
 ] as const;
 
 export const FLOATING_BACK_BUTTON_CONFIG = {
@@ -155,11 +164,20 @@ export const FLOATING_BACK_BUTTON_CONFIG = {
     settingsHome: "/buyer/profile",
     checkout: "/cart",
     buyerProfile: "/buyer/profile",
+    vendorOrders: "/vendor/dashboard",
+    vendorOrderDetail: "/vendor/orders",
+    vendorReturns: "/vendor/orders",
   },
 } as const;
 
 function matchesRoutePrefix(pathname: string, routePrefix: string) {
   return pathname === routePrefix || pathname.startsWith(`${routePrefix}/`);
+}
+
+export function isFloatingMessageHiddenRoute(pathname: string) {
+  return FLOATING_MESSAGE_HIDDEN_ROUTES.some((route) =>
+    matchesRoutePrefix(pathname, route),
+  );
 }
 
 export function isProtectedRoute(pathname: string) {
@@ -194,6 +212,15 @@ export function getFloatingBackFallback(pathname: string) {
   }
   if (pathname === "/buyer/orders") {
     return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.buyerOrders;
+  }
+  if (pathname.startsWith("/vendor/orders/")) {
+    return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.vendorOrderDetail;
+  }
+  if (pathname === "/vendor/orders") {
+    return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.vendorOrders;
+  }
+  if (pathname.startsWith("/vendor/returns")) {
+    return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.vendorReturns;
   }
   if (pathname.startsWith("/settings/")) {
     return FLOATING_BACK_BUTTON_CONFIG.parentRoutes.settings;

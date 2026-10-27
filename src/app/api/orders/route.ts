@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash, randomUUID } from "node:crypto";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdminClient } from "@/lib/supabase-admin";
 import { getSizeConfig, isValidSize } from "@/constants/sizes";
@@ -27,18 +28,19 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const items = body.items as OrderItemPayload[];
-    const deliveryAddress = typeof body.deliveryAddress === "string" ? body.deliveryAddress.trim() : "";
-    const customerName = typeof body.customerName === "string" ? body.customerName.trim() : "";
+    const idempotencyKey = typeof body.idempotencyKey === "string" ? body.idempotencyKey : "";
+    const addressId = typeof body.addressId === "string" ? body.addressId.trim() : "";
+    const addressConfirmed = body.addressConfirmed === true;
     const email = typeof body.email === "string" ? body.email.trim() : "";
 
     if (!items || !Array.isArray(items) || items.length === 0)
       return NextResponse.json({ error: "Cart items are required" }, { status: 400 });
-    if (!deliveryAddress)
-      return NextResponse.json({ error: "Delivery address is required" }, { status: 400 });
-    if (!customerName)
-      return NextResponse.json({ error: "Customer name is required" }, { status: 400 });
+    if (!addressConfirmed || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(addressId))
+      return NextResponse.json({ error: "Confirm a delivery address before continuing to payment." }, { status: 400 });
     if (!email)
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey))
+      return NextResponse.json({ error: "A valid checkout idempotency key is required" }, { status: 400 });
 
     const supabase = createSupabaseServerClient();
     const { data: sessionData } = await supabase.auth.getSession();
@@ -50,6 +52,50 @@ export async function POST(request: NextRequest) {
       .from("users").select("role").eq("id", userId).single();
     if (userError || !user || (user.role !== "buyer" && user.role !== "vendor"))
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
+    const { data: selectedAddress, error: addressError } = await supabaseAdminClient
+      .from("user_addresses")
+      .select("id,user_id,full_name,phone,address_line,city,state,landmark,is_checkout_only")
+      .eq("id", addressId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (addressError) {
+      console.error("Unable to load confirmed checkout address:", addressError.message);
+      return NextResponse.json({ error: "Unable to verify the delivery address. Please retry checkout." }, { status: 500 });
+    }
+    if (!selectedAddress) {
+      return NextResponse.json({ error: "The confirmed delivery address is unavailable. Choose an address again." }, { status: 403 });
+    }
+
+    const deliveryAddressText = [
+      selectedAddress.address_line,
+      selectedAddress.landmark,
+      selectedAddress.city,
+      selectedAddress.state,
+    ].filter((part) => typeof part === "string" && part.trim()).join(", ");
+    const deliveryAddressSnapshot = {
+      address: deliveryAddressText,
+      customerName: selectedAddress.full_name,
+      full_name: selectedAddress.full_name,
+      phone: selectedAddress.phone,
+      address_line: selectedAddress.address_line,
+      city: selectedAddress.city,
+      state: selectedAddress.state,
+      landmark: selectedAddress.landmark,
+      email: sessionData.session?.user?.email ?? email,
+    };
+    const removeCheckoutOnlyAddress = async () => {
+      if (!selectedAddress.is_checkout_only) return;
+      const { error: deleteError } = await supabaseAdminClient
+        .from("user_addresses")
+        .delete()
+        .eq("id", selectedAddress.id)
+        .eq("user_id", userId)
+        .eq("is_checkout_only", true);
+      if (deleteError) {
+        console.error("Unable to remove one-time checkout address:", deleteError.message);
+      }
+    };
 
     if (items.some((item) => !item || typeof item.productId !== "string" ||
         !Number.isInteger(item.quantity) || item.quantity <= 0 ||
@@ -204,6 +250,68 @@ export async function POST(request: NextRequest) {
       };
     });
 
+    const fingerprintLines = orderItems
+      .map((item) => ({
+        productId: item.product_id,
+        variantId: item.variant_id,
+        quantity: item.quantity,
+        unitPrice: Number(item.price_at_purchase).toFixed(2),
+      }))
+      .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+    const cartFingerprint = createHash("sha256")
+      .update(JSON.stringify({ items: fingerprintLines, deliveryAddress: deliveryAddressSnapshot }))
+      .digest("hex");
+
+    const { data: existingOrder, error: existingOrderError } = await supabaseAdminClient
+      .from("orders")
+      .select("id,status,payment_status,cart_fingerprint")
+      .eq("buyer_id", userId)
+      .eq("checkout_idempotency_key", idempotencyKey)
+      .maybeSingle();
+    if (existingOrderError) {
+      console.error("Unable to check checkout idempotency key:", existingOrderError.message);
+      return NextResponse.json({ error: "Unable to resume checkout. Please retry." }, { status: 500 });
+    }
+    if (existingOrder) {
+      if (existingOrder.status !== "pending" || existingOrder.payment_status !== "pending") {
+        return NextResponse.json({ error: "This checkout has already been completed or cancelled." }, { status: 409 });
+      }
+      if (existingOrder.cart_fingerprint === cartFingerprint) {
+        await removeCheckoutOnlyAddress();
+        return NextResponse.json({ status: true, orderId: existingOrder.id }, { status: 200 });
+      }
+
+      const { error: rekeyError } = await supabaseAdminClient
+        .from("orders")
+        .update({ checkout_idempotency_key: randomUUID() })
+        .eq("id", existingOrder.id)
+        .eq("buyer_id", userId)
+        .eq("status", "pending")
+        .eq("payment_status", "pending")
+        .eq("checkout_idempotency_key", idempotencyKey);
+      if (rekeyError) {
+        console.error("Unable to retain previous pending checkout:", rekeyError.message);
+        return NextResponse.json({ error: "Unable to start the changed checkout. Please retry." }, { status: 500 });
+      }
+    }
+
+    const { data: existingCartOrder, error: existingCartError } = await supabaseAdminClient
+      .from("orders")
+      .select("id,status,payment_status")
+      .eq("buyer_id", userId)
+      .eq("cart_fingerprint", cartFingerprint)
+      .eq("status", "pending")
+      .eq("payment_status", "pending")
+      .maybeSingle();
+    if (existingCartError) {
+      console.error("Unable to check open cart order:", existingCartError.message);
+      return NextResponse.json({ error: "Unable to resume checkout. Please retry." }, { status: 500 });
+    }
+    if (existingCartOrder) {
+      await removeCheckoutOnlyAddress();
+      return NextResponse.json({ status: true, orderId: existingCartOrder.id }, { status: 200 });
+    }
+
     const subtotal = orderItems.reduce(
       (sum, item) => sum + Number(item.price_at_purchase) * item.quantity, 0
     );
@@ -217,6 +325,8 @@ export async function POST(request: NextRequest) {
       .insert({
         buyer_id: userId,
         vendor_id: vendorIds[0],
+        checkout_idempotency_key: idempotencyKey,
+        cart_fingerprint: cartFingerprint,
         status: "pending",
         delivery_code: deliveryCode,
         subtotal,
@@ -224,11 +334,35 @@ export async function POST(request: NextRequest) {
         total: subtotal + deliveryFee,
         payment_method: "pending",
         payment_status: "pending",
-        delivery_address: { address: deliveryAddress, customerName, email },
+        delivery_name: selectedAddress.full_name,
+        delivery_phone: selectedAddress.phone,
+        delivery_address: deliveryAddressSnapshot,
       })
       .select("id")
       .single();
 
+    if (orderError?.code === "23505") {
+      let racedOrder = (await supabaseAdminClient
+        .from("orders")
+        .select("id,status,payment_status")
+        .eq("buyer_id", userId)
+        .eq("checkout_idempotency_key", idempotencyKey)
+        .maybeSingle()).data;
+      if (!racedOrder) {
+        racedOrder = (await supabaseAdminClient
+          .from("orders")
+          .select("id,status,payment_status")
+          .eq("buyer_id", userId)
+          .eq("cart_fingerprint", cartFingerprint)
+          .eq("status", "pending")
+          .eq("payment_status", "pending")
+          .maybeSingle()).data;
+      }
+      if (racedOrder?.status === "pending" && racedOrder.payment_status === "pending") {
+        await removeCheckoutOnlyAddress();
+        return NextResponse.json({ status: true, orderId: racedOrder.id }, { status: 200 });
+      }
+    }
     if (orderError || !order)
       return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
 
@@ -282,6 +416,7 @@ export async function POST(request: NextRequest) {
       console.error("Failed to deduct stock:", stockErr);
     }
 
+    await removeCheckoutOnlyAddress();
     return NextResponse.json({ status: true, orderId: order.id }, { status: 201 });
   } catch (error) {
     if (error instanceof OrderValidationError) {

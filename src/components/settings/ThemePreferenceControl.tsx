@@ -16,14 +16,22 @@ export default function ThemePreferenceControl() {
   const [theme, setTheme] = useState<Theme | null>(null);
 
   useEffect(() => {
-    let savedTheme: Theme = "system";
+    let savedTheme: Theme | null = null;
     try {
       const saved = window.localStorage.getItem("tradeloft-theme");
       if (saved === "light" || saved === "dark" || saved === "system") savedTheme = saved;
     } catch (error) {
       console.error("Unable to load theme preference:", error);
     }
-    setTheme(savedTheme);
+    if (savedTheme === null) {
+      try {
+        const saved = window.sessionStorage.getItem("tradeloft-theme");
+        if (saved === "light" || saved === "dark" || saved === "system") savedTheme = saved;
+      } catch (error) {
+        console.error("Unable to load session theme preference:", error);
+      }
+    }
+    setTheme(savedTheme ?? "light");
   }, []);
 
   useEffect(() => {

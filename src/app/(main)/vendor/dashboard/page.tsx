@@ -286,7 +286,7 @@ export default function VendorDashboardPage() {
             </article>
           ))}
         </div>
-        <div className="hidden overflow-x-auto rounded bg-surface shadow md:block">
+        <div className="hidden w-full max-w-full min-w-0 overflow-x-auto rounded bg-surface shadow md:block">
           <table className="min-w-full">
             <thead>
               <tr className="text-left text-sm text-muted border-b">

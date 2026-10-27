@@ -2,6 +2,7 @@ interface PaystackEdgePayload {
   action: "initialize" | "verify";
   orderId?: string;
   reference?: string;
+  callbackOrigin?: string;
 }
 
 export async function invokePaystackEdgeFunction(

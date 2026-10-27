@@ -181,7 +181,7 @@ export default function VendorProductsPage() {
           <p className="mt-2">Add your first product!</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
+        <div className="w-full max-w-full min-w-0 overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
           <table className="min-w-full border-collapse text-left text-sm">
             <thead className="bg-bg text-text">
               <tr>

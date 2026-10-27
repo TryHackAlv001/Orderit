@@ -10,6 +10,7 @@ import {
 import { PRODUCT_CATEGORIES, getCurrencyOption } from "@/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useMessagingSummary } from "@/hooks/useMessagingSummary";
 import type { NotificationType } from "@/lib/notifications";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
@@ -65,6 +66,9 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(
     authLoading ? undefined : user?.id,
   );
+  const { conversations } = useMessagingSummary();
+  const messageUnreadCount = conversations.reduce((count, conversation) => count + conversation.unreadCount, 0);
+  const menuUnreadCount = unreadCount + messageUnreadCount;
   const isVendor = user?.role === "vendor";
   const accountHref = isVendor ? "/vendor/orders" : user ? "/buyer/orders" : "/login";
   const profileHref = isVendor ? "/vendor/profile" : "/buyer/profile";
@@ -101,12 +105,6 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
       detail: { open: openMenu === "navigation" },
     }));
   }, [openMenu]);
-
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent("navbar-notifications-state", {
-      detail: { unreadCount },
-    }));
-  }, [unreadCount]);
 
   useEffect(() => {
     if (!openMenu) return;
@@ -309,6 +307,20 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
 
   const renderNavigationMenuContents = () => (
     <nav aria-label="Navigation menu" className="space-y-2">
+      {user && (
+        <div className="space-y-1 border-b border-border pb-3">
+          <Link href={isVendor ? "/vendor/notifications" : "/buyer/notifications"} onClick={closeAfterNavigation} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Bell className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="flex-1">Notifications</span>
+            {unreadCount > 0 && <span aria-label={`${unreadCount} unread notifications`} className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-accent-on">{unreadCount > 99 ? "99+" : unreadCount}</span>}
+          </Link>
+          <Link href="/messages" onClick={closeAfterNavigation} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <MessageSquare className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="flex-1">Messages</span>
+            {messageUnreadCount > 0 && <span aria-label={`${messageUnreadCount} unread messages`} className="inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-accent-on">{messageUnreadCount > 99 ? "99+" : messageUnreadCount}</span>}
+          </Link>
+        </div>
+      )}
       <button type="button" disabled title="Product-level sales ranking is not available yet."       className="block min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm text-muted opacity-70">
         Best-Selling
       </button>
@@ -332,7 +344,6 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
         {user && <Link href={profileHref} onClick={closeAfterNavigation} className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Profile</Link>}
         {user && <Link href={accountHref} onClick={closeAfterNavigation} className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Orders</Link>}
         <Link href="/cart" onClick={closeAfterNavigation} className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Cart{cartCount > 0 ? ` (${cartCount > 99 ? "99+" : cartCount})` : ""}</Link>
-        <Link href={user ? isVendor ? "/vendor/notifications" : "/buyer/notifications" : "/login"} onClick={closeAfterNavigation} className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Notifications{unreadCount > 0 ? ` (${unreadCount})` : ""}</Link>
       </div>
       {isVendor && <Link href="/vendor/dashboard" onClick={closeAfterNavigation} className="block min-h-10 rounded-lg px-3 py-2 text-sm text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Vendor Dashboard</Link>}
       <p className="px-3 py-2 text-sm text-muted" aria-label={`Language English, currency ${currency.code}`}>
@@ -535,12 +546,13 @@ export function Navbar({ variant = "neutral" }: NavbarProps) {
               ref={navigationButtonRef}
               type="button"
               className="home-header-text flex h-10 w-10 items-center justify-center rounded-full border border-border text-text hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={openMenu === "navigation" ? "Close navigation menu" : "Open navigation menu"}
+              aria-label={`${openMenu === "navigation" ? "Close" : "Open"} navigation menu${menuUnreadCount > 0 ? `, ${menuUnreadCount} unread items` : ""}`}
               aria-expanded={openMenu === "navigation"}
               aria-controls="navbar-navigation-menu"
               onClick={() => toggleHeaderMenu("navigation")}
             >
               {openMenu === "navigation" ? <X className="h-4 w-4 sm:h-5 sm:w-5" /> : <Menu className="h-4 w-4 sm:h-5 sm:w-5" />}
+              {menuUnreadCount > 0 && <span aria-hidden="true" className="home-header-badge absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-accent-on">{menuUnreadCount > 99 ? "99+" : menuUnreadCount}</span>}
             </button>
             {openMenu === "navigation" && (
               <div

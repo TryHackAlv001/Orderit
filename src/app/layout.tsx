@@ -47,7 +47,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `let saved = null; try { saved = localStorage.getItem("tradeloft-theme"); } catch {} const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches; document.documentElement.dataset.theme = saved === "light" || saved === "dark" ? saved : systemDark ? "dark" : "light";`,
+            __html: `let saved = null; try { saved = localStorage.getItem("tradeloft-theme"); } catch (error) { console.error("Unable to read the saved theme:", error); } if (saved !== "light" && saved !== "dark" && saved !== "system") { try { const sessionSaved = sessionStorage.getItem("tradeloft-theme"); if (sessionSaved === "light" || sessionSaved === "dark" || sessionSaved === "system") saved = sessionSaved; } catch (error) { console.error("Unable to read the session theme:", error); } } const systemDark = saved === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches; document.documentElement.dataset.theme = saved === "dark" || systemDark ? "dark" : "light";`,
           }}
         />
       </head>

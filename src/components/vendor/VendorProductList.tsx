@@ -206,7 +206,7 @@ export function VendorProductList({ products: initialProducts, categories }: Ven
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
+      <div className="w-full max-w-full min-w-0 overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
         <table className="min-w-full divide-y divide-border text-sm text-text">
           <thead className="bg-bg text-muted">
             <tr>

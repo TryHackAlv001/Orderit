@@ -9,6 +9,7 @@ import {
   Globe2,
   LockKeyhole,
   LogOut,
+  MapPin,
   ShieldCheck,
   Share2,
   Store,
@@ -183,6 +184,7 @@ export default function SettingsHome() {
           <h2 id="settings-account-title" className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted">Account</h2>
           {data?.vendorProfile && <SettingsRow href="/vendor/settings" label="Shop settings" value={data.vendorProfile.shop_name} icon={Store} />}
           <SettingsRow href="/settings/notifications" label="Notifications" icon={Bell} />
+          <SettingsRow href="/settings/addresses" label="Addresses" icon={MapPin} />
           <div className="flex min-h-14 items-center gap-3 border-b border-border px-4">
             <Globe2 className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" />
             <span className="min-w-0 flex-1 text-sm font-medium text-text">Language</span>

@@ -231,11 +231,11 @@ export default async function VendorStorePage({ params }: VendorStorePageProps) 
 
       {/* Tabs */}
       <div className="border-b border-border">
-        <div className="flex gap-8 overflow-x-auto">
+        <div className="flex w-full max-w-full min-w-0 flex-nowrap gap-8 overflow-x-auto">
           {['products', 'categories', 'about'].map((tab) => (
             <button
               key={tab}
-              className={`border-b-2 px-4 py-4 font-medium capitalize transition whitespace-nowrap ${
+              className={`shrink-0 border-b-2 px-4 py-4 font-medium capitalize transition whitespace-nowrap ${
                 tab === 'products'
                   ? 'border-accent text-accent-text'
                   : 'border-transparent text-muted hover:text-text'
