@@ -378,9 +378,7 @@ export function CheckoutForm({ items }: CheckoutFormProps) {
                   items={orderItems}
                   addressId={selectedAddress.id}
                   addressConfirmed={addressConfirmed}
-                  customerName={selectedAddress.full_name}
                   email={user?.email ?? ""}
-                  customerPhone={selectedAddress.phone}
                 />
               </section>
             );

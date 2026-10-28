@@ -76,8 +76,34 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deploy on Netlify
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This project uses Next.js middleware, API routes, and server-side rendering, so deploy it as a Next.js app rather than a static export. The included `netlify.toml` sets the build command to `npm run build` and the publish directory to `.next`. Netlify's Next.js adapter is detected and configured automatically; do not add a static-export setting or pin the adapter version.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Push the repository to a Git provider and [import it into Netlify](https://app.netlify.com/start).
+2. Keep the detected build settings from `netlify.toml` (`npm run build`, publish directory `.next`).
+3. In **Site configuration → Environment variables**, add the production variables listed below. Use the same values for deploy previews only if those previews should access production services.
+4. Deploy the site. After assigning a custom domain, update `APP_URL`, `NEXT_PUBLIC_APP_URL`, and `PAYMENT_CALLBACK_ALLOWED_ORIGINS` to that site's HTTPS origin, then redeploy.
+
+### Netlify environment variables
+
+Required for the app's Supabase-backed features:
+
+- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL.
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon/publishable key.
+- `SUPABASE_SERVICE_ROLE_KEY` — Supabase service-role key. Keep it server-only; never use a `NEXT_PUBLIC_` prefix.
+
+Required for Paystack checkout in production:
+
+- `APP_URL` — the public HTTPS origin of the deployed app, with no path (for example, `https://shop.example.com`).
+- `PAYMENT_CALLBACK_ALLOWED_ORIGINS` — comma-separated trusted HTTPS origins. Include the exact `APP_URL` origin. For a single production site, use the same origin as `APP_URL`.
+- Set the Supabase Edge Function secrets `PAYSTACK_SECRET_KEY` and `APP_URL` in Supabase, not in Netlify. Deploy the `paystack-payments` and `paystack-webhook` functions and configure the provider webhook as described in [PAYMENT_INTEGRATION.md](./PAYMENT_INTEGRATION.md).
+
+Optional Flutterwave settings (only when enabling Flutterwave):
+
+- `FLUTTERWAVE_ENABLED=true`
+- `NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY`
+- `FLUTTERWAVE_SECRET_KEY` — server-only.
+- `NEXT_PUBLIC_APP_URL` — the public site URL used for Flutterwave redirects and branding.
+
+Add your deployed site URL to the allowed redirect URLs in Supabase Authentication settings. Keep all service-role and payment secret keys out of browser-exposed variables and source control. `.env.example` lists the app-side variable names; do not copy placeholder values into Netlify.

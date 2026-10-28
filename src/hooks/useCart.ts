@@ -36,7 +36,7 @@ export function useCart() {
       const guestItems = currentItems.filter((item) =>
         !item.synced_user_id && !isOwnProduct(item.product.vendor_id, currentUser.id)
       );
-      let failedGuestItems: CartItem[] = [];
+      const failedGuestItems: CartItem[] = [];
 
       for (const item of guestItems) {
         const { data, error } = await supabase.rpc("add_cart_item", {

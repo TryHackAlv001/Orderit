@@ -79,7 +79,7 @@ model products {
   description    String?
   price          Decimal     @db.Decimal(12, 2)
   compare_price  Decimal?    @db.Decimal(12, 2)
-  images         String[]    @db.Text[]
+  images         String[]    @db.Text
   stock_quantity Int         @default(0)
   sku            String?     @unique
   is_active      Boolean     @default(true)

@@ -17,11 +17,9 @@ interface PaymentButtonsProps {
   addressId: string;
   addressConfirmed: boolean;
   email: string;
-  customerName?: string;
-  customerPhone?: string;
 }
 
-type PaymentGateway = "paystack" | "flutterwave" | null;
+type PaymentGateway = "paystack" | null;
 const CHECKOUT_ATTEMPT_KEY = "order-checkout-attempt";
 
 interface CheckoutAttempt {
@@ -35,8 +33,6 @@ export function PaymentButtons({
   addressId,
   addressConfirmed,
   email,
-  customerName,
-  customerPhone,
 }: PaymentButtonsProps) {
   const [loading, setLoading] = useState<PaymentGateway>(null);
   const [error, setError] = useState<string | null>(null);
@@ -113,39 +109,6 @@ export function PaymentButtons({
     })();
   };
 
-  const handleFlutterwavePayment = async () => {
-    setLoading("flutterwave");
-    setError(null);
-
-    try {
-      const sellerOrderId = await createOrder();
-      // Call Flutterwave initialize API
-      const response = await fetch("/api/payments/flutterwave/initialize", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderId: sellerOrderId,
-          customerName,
-          customerPhone,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!data.status || !data.data?.link) {
-        throw new Error(data.error || "Failed to initialize Flutterwave payment");
-      }
-
-      // Redirect to Flutterwave payment page
-      window.location.href = data.data.link;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Payment initialization failed");
-      setLoading(null);
-    }
-  };
-
   return (
     <div className="space-y-3" data-payment-in-progress={loading !== null || pendingPayment !== null ? "true" : undefined}>
       {(error || paymentError) && (
@@ -166,7 +129,7 @@ export function PaymentButtons({
         </section>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3">
         <Button
           type="button"
           onClick={handlePaystackPayment}
@@ -179,23 +142,7 @@ export function PaymentButtons({
               Processing...
             </>
           ) : (
-            "Pay with Paystack"
-          )}
-        </Button>
-
-        <Button
-          type="button"
-          onClick={handleFlutterwavePayment}
-          disabled={!addressConfirmed || !addressId || loading !== null || pendingPayment !== null}
-          variant="outline"
-        >
-          {loading === "flutterwave" ? (
-            <>
-              <Spinner />
-              Processing...
-            </>
-          ) : (
-            "Pay with Flutterwave"
+            "Pay"
           )}
         </Button>
       </div>

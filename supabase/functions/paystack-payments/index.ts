@@ -151,6 +151,32 @@ async function beginPaystackAttempt(orderId: string, reference: string): Promise
   return await readJson<boolean>(response);
 }
 
+async function markOrderPaid(
+  reference: string,
+  amountKobo: number,
+  currency: string,
+  eventKey: string,
+): Promise<"paid" | "already_paid" | "duplicate" | "needs_review"> {
+  const response = await fetch(`${supabaseUrl()}/rest/v1/rpc/mark_order_paid`, {
+    method: "POST",
+    headers: {
+      ...serviceHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      p_reference: reference,
+      p_amount_kobo: amountKobo,
+      p_currency: currency,
+      p_event_key: eventKey,
+    }),
+  });
+  const outcome = await readJson<string>(response);
+  if (outcome !== "paid" && outcome !== "already_paid" && outcome !== "duplicate" && outcome !== "needs_review") {
+    throw new Error("Order payment confirmation returned an unexpected result");
+  }
+  return outcome;
+}
+
 async function updateAttemptStatus(
   reference: string,
   status: "initialized" | "failed" | "paid",
@@ -283,6 +309,7 @@ async function initializePayment(
         reference,
         metadata: { orderId },
         callback_url: `${callbackOrigin}/checkout/verify?gateway=paystack&reference=${encodeURIComponent(reference)}&orderId=${encodeURIComponent(orderId)}`,
+        channels: ["bank_transfer", "card", "ussd", "bank"],
       }),
     });
     const result = await readJson<PaystackInitializeResponse>(response);
@@ -328,8 +355,15 @@ async function initializePayment(
 
 async function verifyPayment(user: AuthUser, reference: string): Promise<Response> {
   const result = await verifyPaystackReference(reference);
-  if (!result.status || result.data?.status !== "success") {
+  if (!result.status) {
     return json({ success: false, error: "Payment not successful" }, 400);
+  }
+  if (result.data?.status !== "success") {
+    const pending = result.data?.status === "pending" || result.data?.status === "ongoing";
+    return json(
+      { success: false, ...(pending ? { pending: true } : {}), error: "Payment not successful" },
+      pending ? 200 : 400,
+    );
   }
 
   const transaction = result.data;
@@ -353,30 +387,14 @@ async function verifyPayment(user: AuthUser, reference: string): Promise<Respons
     return json({ success: false, error: "Paid amount or currency does not match the order" }, 400);
   }
 
-  if (order.payment_status !== "paid") {
-    const updateQuery = new URLSearchParams({
-      id: `eq.${orderId}`,
-      buyer_id: `eq.${user.id}`,
-      payment_status: "eq.pending",
-      select: "id",
-    });
-    const updated = await patchOrder(updateQuery, {
-      payment_status: "paid",
-      paid_at: new Date().toISOString(),
-      status: "confirmed",
-    });
-
-    if (!updated.length) {
-      const latestQuery = new URLSearchParams({
-        select: "payment_status",
-        id: `eq.${orderId}`,
-        buyer_id: `eq.${user.id}`,
-      });
-      const latest = await getOrder<{ payment_status: string }>(latestQuery);
-      if (latest?.payment_status !== "paid") {
-        return json({ success: false, error: "Order payment state changed; retry verification" }, 409);
-      }
-    }
+  const paymentOutcome = await markOrderPaid(
+    reference,
+    orderAmountKobo,
+    transaction.currency,
+    `paystack-verify:${reference}`,
+  );
+  if (paymentOutcome === "needs_review") {
+    return json({ success: false, error: "Order status requires payment review" }, 409);
   }
   await updateAttemptStatus(reference, "paid");
 

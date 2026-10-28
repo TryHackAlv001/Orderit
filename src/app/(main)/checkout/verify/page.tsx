@@ -1,23 +1,76 @@
 'use client';
 import { useCartStore } from '@/store/cartStore';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MARKETPLACE_ROUTE } from '@/constants';
 import { waitForOriginalPaymentTab } from '@/lib/paystack-payment-tab';
 
-type VerificationStatus = 'loading' | 'success' | 'failed' | 'received';
+type VerificationStatus = 'loading' | 'waiting' | 'expired' | 'success' | 'failed' | 'received';
+type PaymentCheckResult = 'paid' | 'pending' | 'failed' | 'skipped';
+const PAYMENT_POLL_INTERVAL_MS = 10_000;
+const PAYMENT_WAIT_DURATION_MS = 10 * 60 * 1_000;
 
 export default function CheckoutVerifyPage() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<VerificationStatus>('loading');
+  const [isChecking, setIsChecking] = useState(false);
+  const [paymentCheckError, setPaymentCheckError] = useState<string | null>(null);
+  const checkInProgress = useRef(false);
   const removeProducts = useCartStore((state) => state.removeProducts);
   const gateway = searchParams.get('gateway');
   const reference = searchParams.get('reference');
   const orderId = searchParams.get('orderId');
   const transactionId = searchParams.get('transaction_id');
+
+  const checkPaystackStatus = useCallback(async (signal?: AbortSignal, retrying = false): Promise<PaymentCheckResult> => {
+    if (!reference || checkInProgress.current) return 'skipped';
+    checkInProgress.current = true;
+    setIsChecking(true);
+    try {
+      const res = await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(reference)}`, { signal });
+      const data = await res.json();
+      if (data.success) {
+        setPaymentCheckError(null);
+        removeProducts(data.productIds ?? []);
+        if (orderId) {
+          try {
+            const attempt = JSON.parse(sessionStorage.getItem("order-checkout-attempt") ?? "null");
+            if (attempt?.orderId === orderId) sessionStorage.removeItem("order-checkout-attempt");
+          } catch {
+            sessionStorage.removeItem("order-checkout-attempt");
+          }
+        }
+        setStatus('success');
+        return 'paid';
+      } else if (data.pending) {
+        setPaymentCheckError(null);
+        setStatus((current) => current === 'expired' ? current : 'waiting');
+        return 'pending';
+      } else if (retrying && res.status >= 500) {
+        setPaymentCheckError("We couldn't check your payment just now. We'll try again shortly.");
+        setStatus((current) => current === 'expired' ? current : 'waiting');
+        return 'pending';
+      } else {
+        setStatus('failed');
+        return 'failed';
+      }
+    } catch {
+      if (signal?.aborted) return 'skipped';
+      if (retrying) {
+        setPaymentCheckError("We couldn't check your payment just now. We'll try again shortly.");
+        setStatus((current) => current === 'expired' ? current : 'waiting');
+        return 'pending';
+      }
+      setStatus('failed');
+      return 'failed';
+    } finally {
+      checkInProgress.current = false;
+      setIsChecking(false);
+    }
+  }, [orderId, reference, removeProducts]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -26,22 +79,7 @@ export default function CheckoutVerifyPage() {
     const verify = async () => {
       try {
         if (gateway === 'paystack' && reference) {
-          const res = await fetch(`/api/payments/paystack/verify?reference=${encodeURIComponent(reference)}`);
-          const data = await res.json();
-          if (data.success) {
-            removeProducts(data.productIds ?? []);
-            if (orderId) {
-              try {
-                const attempt = JSON.parse(sessionStorage.getItem("order-checkout-attempt") ?? "null");
-                if (attempt?.orderId === orderId) sessionStorage.removeItem("order-checkout-attempt");
-              } catch {
-                sessionStorage.removeItem("order-checkout-attempt");
-              }
-            }
-            setStatus('success');
-          } else {
-            setStatus('failed');
-          }
+          await checkPaystackStatus(controller.signal);
         } else if (gateway === 'flutterwave') {
           const res = transactionId
             ? await fetch(`/api/payments/flutterwave/verify?transaction_id=${encodeURIComponent(transactionId)}`)
@@ -73,9 +111,14 @@ export default function CheckoutVerifyPage() {
         );
         if (disposed) return;
         if (acknowledged) {
-          setStatus('received');
-          window.close();
-          return;
+          const result = await checkPaystackStatus(controller.signal);
+          if (disposed) return;
+          if (result === 'paid') {
+            setStatus('received');
+            window.close();
+            return;
+          }
+          if (result !== 'skipped') return;
         }
       }
       if (!disposed) await verify();
@@ -86,7 +129,30 @@ export default function CheckoutVerifyPage() {
       disposed = true;
       controller.abort();
     };
-  }, [gateway, orderId, reference, removeProducts, transactionId]);
+  }, [checkPaystackStatus, gateway, orderId, reference, removeProducts, transactionId]);
+
+  useEffect(() => {
+    if (status !== 'waiting' || gateway !== 'paystack' || !reference) return;
+
+    const controller = new AbortController();
+    const interval = window.setInterval(() => {
+      void checkPaystackStatus(controller.signal, true);
+    }, PAYMENT_POLL_INTERVAL_MS);
+    const timeout = window.setTimeout(() => {
+      controller.abort();
+      setStatus('expired');
+    }, PAYMENT_WAIT_DURATION_MS);
+
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [checkPaystackStatus, gateway, reference, status]);
+
+  const handleCheckAgain = () => {
+    void checkPaystackStatus(undefined, true);
+  };
 
   return (
     <div className="flex min-h-[60svh] min-w-0 items-center justify-center px-0 pb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+1rem)] md:px-4 md:pb-4">
@@ -112,6 +178,39 @@ export default function CheckoutVerifyPage() {
                 Back to marketplace
               </Link>
             </div>
+          </>
+        )}
+
+        {status === 'waiting' && (
+          <>
+            <Loader2 className="mx-auto h-16 w-16 animate-spin text-accent-text" />
+            <h1 className="text-xl font-semibold text-text sm:text-2xl">Waiting for your transfer to be confirmed</h1>
+            <p className="text-muted">We&apos;ll check the payment status automatically every 10 seconds.</p>
+            {paymentCheckError && <p className="text-sm text-danger-text" role="status">{paymentCheckError}</p>}
+            <button
+              type="button"
+              onClick={handleCheckAgain}
+              disabled={isChecking}
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-6 py-2 text-sm font-medium text-text transition-colors duration-200 hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isChecking ? "Checking..." : "Check again"}
+            </button>
+          </>
+        )}
+
+        {status === 'expired' && (
+          <>
+            <Loader2 className="mx-auto h-16 w-16 text-accent-text" />
+            <h1 className="text-xl font-semibold text-text sm:text-2xl">Transfer confirmation is taking longer than expected</h1>
+            <p className="text-muted">Your order will update automatically once the bank confirms your transfer.</p>
+            {orderId && (
+              <Link
+                href={`/buyer/orders/${encodeURIComponent(orderId)}`}
+                className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-6 py-2 text-sm font-medium text-text transition-colors duration-200 hover:bg-surface-raised"
+              >
+                View my order
+              </Link>
+            )}
           </>
         )}
 

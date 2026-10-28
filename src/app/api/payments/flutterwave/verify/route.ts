@@ -5,6 +5,10 @@ import { supabaseAdminClient } from "@/lib/supabase-admin";
 
 
 export async function GET(request: NextRequest) {
+  if (process.env.FLUTTERWAVE_ENABLED !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const transactionId = searchParams.get("transaction_id");
