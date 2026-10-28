@@ -2,31 +2,32 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
-import { ShoppingBag, Minus, Plus, Trash2 } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
+import { CartItem } from '@/components/cart/CartItem';
 import { usePurchasableCart } from '@/hooks/usePurchasableCart';
 import { createClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
 import type { ProductVariant } from '@/types';
 
-function optionLabel(variant: ProductVariant) {
-  return [variant.color, variant.size].filter(Boolean).join(' · ') || 'Default option';
-}
-
 export default function CartPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const items = usePurchasableCart();
   const user = useAuthStore((state) => state.user);
-  const { acceptPrice, resolveItem, updateQuantity } = useCartStore();
+  const { acceptPrice, changeVariant, rollbackVariantChange, updateQuantity } = useCartStore();
   const [variantsByProduct, setVariantsByProduct] = useState<Record<string, ProductVariant[]>>({});
   const [variantsLoaded, setVariantsLoaded] = useState(false);
+  const [savingLineIds, setSavingLineIds] = useState<Set<string>>(() => new Set());
+  const productIdsKey = useMemo(
+    () => Array.from(new Set(items.map((item) => item.product.id))).sort().join(','),
+    [items],
+  );
 
   useEffect(() => {
-    const productIds = Array.from(new Set(items.map((item) => item.product.id)));
+    const productIds = productIdsKey ? productIdsKey.split(',') : [];
     if (!productIds.length) {
       setVariantsByProduct({});
       setVariantsLoaded(true);
@@ -59,7 +60,7 @@ export default function CartPage() {
     return () => {
       cancelled = true;
     };
-  }, [items, supabase]);
+  }, [productIdsKey, supabase]);
 
   const itemNeedsSelection = (item: (typeof items)[number]) => {
     const variants = variantsByProduct[item.product.id];
@@ -112,11 +113,18 @@ export default function CartPage() {
   const updateLineQuantity = async (itemId: string, quantity: number) => {
     const item = items.find((current) => current.id === itemId);
     if (!item) return;
+    const variant = variantsByProduct[item.product.id]?.find((current) => current.id === item.variant_id);
+    const adjustedQuantity = quantity > 0 && variant
+      ? Math.min(quantity, variant.stock_quantity)
+      : quantity;
+    if (adjustedQuantity !== quantity) {
+      toast.success(`Quantity reduced to ${adjustedQuantity} due to stock.`);
+    }
     const previousQuantity = item.quantity;
-    updateQuantity(itemId, quantity);
+    updateQuantity(itemId, adjustedQuantity);
     if (user && item.database_id) {
-      const { error } = quantity > 0
-        ? await supabase.from('cart_items').update({ quantity }).eq('id', item.database_id)
+      const { error } = adjustedQuantity > 0
+        ? await supabase.from('cart_items').update({ quantity: adjustedQuantity }).eq('id', item.database_id)
         : await supabase.from('cart_items').delete().eq('id', item.database_id);
       if (error) {
         updateQuantity(itemId, previousQuantity);
@@ -128,47 +136,64 @@ export default function CartPage() {
   const selectVariant = async (itemId: string, variantId: string) => {
     const item = items.find((current) => current.id === itemId);
     const variant = variantsByProduct[item?.product.id ?? '']?.find((current) => current.id === variantId);
-    if (!item || !variant || variant.stock_quantity < item.quantity) return;
+    if (!item || !variant || variant.stock_quantity <= 0 || savingLineIds.has(itemId)) return;
+    const change = changeVariant(itemId, variant);
+    if (!change) return;
 
-    if (user) {
-      let databaseId = item.database_id;
-      if (!databaseId) {
-        let query = supabase
-          .from('cart_items')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('product_id', item.product.id);
-        query = item.variant_id ? query.eq('variant_id', item.variant_id) : query.is('variant_id', null);
-        const { data, error } = await query.maybeSingle();
-        if (error) {
-          toast.error(error.message);
-          return;
-        }
-        databaseId = data?.id;
-      }
-      if (databaseId) {
-        const { data, error } = await supabase.rpc('resolve_cart_item_variant', {
-          p_cart_item_id: databaseId,
-          p_variant_id: variant.id,
-        });
-        if (error) {
-          toast.error(error.message);
-          return;
-        }
+    const affectedIds = new Set([
+      itemId,
+      change.nextItem.id,
+      ...change.previousItems.map((previous) => previous.id),
+    ]);
+    setSavingLineIds((current) => new Set([...current, ...affectedIds]));
+
+    try {
+      if (user) {
+        const { data, error } = item.database_id
+          ? await supabase.rpc('resolve_cart_item_variant', {
+              p_cart_item_id: item.database_id,
+              p_variant_id: variant.id,
+            })
+          : await supabase.rpc('add_cart_item', {
+              p_product_id: item.product.id,
+              p_variant_id: variant.id,
+              p_quantity: item.quantity,
+              p_price_at_add: Number(item.product.price),
+            });
+        if (error) throw error;
+
         const row = Array.isArray(data) ? data[0] : data;
-        resolveItem(itemId, variant);
-        if (row?.id) {
-          useCartStore.getState().markSynced(
-            `${item.product.id}::variant:${variant.id}`,
-            row.id,
-            user.id,
-          );
+        if (!row?.id) throw new Error('The cart could not be synchronized.');
+        const store = useCartStore.getState();
+        store.markSynced(change.nextItem.id, row.id, user.id);
+        if (typeof row.quantity === 'number') {
+          store.updateQuantity(change.nextItem.id, row.quantity);
         }
-        return;
+        const persistedQuantity = typeof row.quantity === 'number'
+          ? row.quantity
+          : change.nextItem.quantity;
+        if (persistedQuantity < change.requestedQuantity) {
+          toast.success(`Quantity reduced to ${persistedQuantity} due to stock.`);
+        }
+      } else if (change.nextItem.quantity < change.requestedQuantity) {
+        toast.success(`Quantity reduced to ${change.nextItem.quantity} due to stock.`);
       }
+    } catch (error) {
+      rollbackVariantChange(change);
+      const message = error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error !== null && 'message' in error &&
+            typeof error.message === 'string'
+          ? error.message
+          : 'Unable to update this cart option.';
+      toast.error(message);
+    } finally {
+      setSavingLineIds((current) => {
+        const next = new Set(current);
+        affectedIds.forEach((id) => next.delete(id));
+        return next;
+      });
     }
-
-    resolveItem(itemId, variant);
   };
 
   const confirmCurrentPrice = async (itemId: string) => {
@@ -243,91 +268,24 @@ export default function CartPage() {
                         variant.id === item.variant_id && variant.stock_quantity > 0
                       );
                       const lineNeedsChoice = unresolved || (Boolean(item.variant_id) && !selectedVariantIsAvailable);
+                      const selectedVariant = variants.find((variant) => variant.id === item.variant_id);
                       return (
                         <div
                           id={`cart-item-${item.id}`}
                           key={item.id}
-                          className="min-w-0 p-4 transition-colors duration-200 hover:bg-surface-raised md:p-6"
+                          className="min-w-0"
                         >
-                          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:gap-6">
-                            <div className="flex min-w-0 gap-4 sm:flex-1">
-                            <div className="h-24 w-24 shrink-0 sm:h-[120px] sm:w-[120px]">
-                              {item.product.images?.[0] ? (
-                                <Image src={item.product.images[0]} alt={item.product.name} width={120} height={120} className="h-full w-full rounded-lg object-cover" />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center rounded-md bg-surface-raised">
-                                  <ShoppingBag className="h-8 w-8 text-muted" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex min-w-0 flex-1 flex-col">
-                              <h3 className="mb-1 line-clamp-2 break-words text-lg font-semibold text-text">{item.product.name}</h3>
-                              <p className="mb-2 truncate text-sm text-muted" title={item.vendor?.shop_name || 'Vendor Store'}>Sold by {item.vendor?.shop_name || 'Vendor Store'}</p>
-                              {item.selected_color && <p className="text-sm text-muted">Color: {item.selected_color}</p>}
-                              {item.selected_size && <p className="text-sm text-muted">Size: {item.selected_size}</p>}
-                              {lineNeedsChoice && (
-                                <div className="mt-2 max-w-sm">
-                                  <label htmlFor={`variant-${item.id}`} className="mb-1 block text-sm font-semibold text-text">
-                                    Select options
-                                  </label>
-                                  <select
-                                    id={`variant-${item.id}`}
-                                    value={selectedVariantIsAvailable ? item.variant_id ?? '' : ''}
-                                    onChange={(event) => void selectVariant(item.id, event.target.value)}
-                                    className="min-h-11 w-full rounded-md border border-border bg-surface px-3 py-2 text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                  >
-                                    <option value="">Choose size/color</option>
-                                    {variants.map((variant) => (
-                                      <option
-                                        key={variant.id}
-                                        value={variant.id}
-                                        disabled={variant.stock_quantity <= 0 || variant.stock_quantity < item.quantity}
-                                      >
-                                        {optionLabel(variant)}{variant.stock_quantity <= 0 ? ' — Out of stock' : variant.stock_quantity < item.quantity ? ` — Only ${variant.stock_quantity} available` : ''}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  {variants.length === 0 && (
-                                    <p className="mt-2 text-sm text-danger-text">Product options are no longer available. Remove this item and choose another product.</p>
-                                  )}
-                                </div>
-                              )}
-                              <p className="mb-4 mt-2 font-display text-xl font-bold text-accent-text">
-                                {lineNeedsChoice
-                                  ? `From ₦${Number(item.product.price).toLocaleString()}`
-                                  : `₦${Number(item.product.price).toLocaleString()}`}
-                              </p>
-                              {Number(item.price_at_add ?? item.product.price) !== Number(item.product.price) && (
-                                <div className="mb-3 rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-text">
-                                  Price changed from ₦{Number(item.price_at_add).toLocaleString()} to ₦{Number(item.product.price).toLocaleString()}.
-                                  <button type="button" onClick={() => void confirmCurrentPrice(item.id)} className="ml-2 font-semibold text-accent-text underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                    Use new price
-                                  </button>
-                                </div>
-                              )}
-                              <div className="mt-auto flex items-center gap-2">
-                                <button type="button" onClick={() => void updateLineQuantity(item.id, item.quantity - 1)} className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border bg-surface-raised text-text hover:border-accent hover:bg-accent/10 hover:text-accent-text" aria-label="Decrease quantity">
-                                  <Minus className="h-4 w-4" />
-                                </button>
-                                <span className="w-12 text-center font-semibold text-text" aria-label={`Quantity ${item.quantity}`}>{item.quantity}</span>
-                                <button type="button" onClick={() => void updateLineQuantity(item.id, item.quantity + 1)} className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border bg-surface-raised text-text hover:border-accent hover:bg-accent/10 hover:text-accent-text" aria-label="Increase quantity">
-                                  <Plus className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                            </div>
-                            <div className="flex min-w-0 items-center justify-between sm:flex-col sm:items-end">
-                              <button type="button" onClick={() => void updateLineQuantity(item.id, 0)} className="inline-flex h-11 w-11 items-center justify-center rounded-md text-danger-text hover:bg-danger/10" aria-label="Remove item">
-                                <Trash2 className="h-5 w-5" />
-                              </button>
-                              <div className="min-w-0 text-right">
-                                <p className="mb-1 text-sm text-muted">Subtotal</p>
-                                <p className="break-words font-display text-lg font-bold text-text sm:text-xl">
-                                  {lineNeedsChoice ? '—' : `₦${(Number(item.price_at_add ?? item.product.price) * item.quantity).toLocaleString()}`}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+                          <CartItem
+                            item={item}
+                            variants={variants}
+                            unresolved={lineNeedsChoice}
+                            loading={savingLineIds.has(item.id)}
+                            stockLimit={selectedVariant?.stock_quantity}
+                            priceChanged={Number(item.price_at_add ?? item.product.price) !== Number(item.product.price)}
+                            onVariantChange={(variant) => void selectVariant(item.id, variant.id)}
+                            onQuantityChange={(quantity) => void updateLineQuantity(item.id, quantity)}
+                            onAcceptPrice={() => void confirmCurrentPrice(item.id)}
+                          />
                         </div>
                       );
                     })}

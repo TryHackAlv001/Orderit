@@ -9,7 +9,11 @@ interface CartState {
   rollbackAdd: (itemId: string, quantity: number) => void;
   markSynced: (itemId: string, databaseId: string, userId: string) => void;
   markNeedsSelection: (itemId: string, needsSelection: boolean) => void;
-  resolveItem: (itemId: string, variant: { id: string; size: string | null; color: string | null }) => void;
+  changeVariant: (
+    itemId: string,
+    variant: { id: string; size: string | null; color: string | null; stock_quantity: number },
+  ) => CartVariantChange | null;
+  rollbackVariantChange: (change: CartVariantChange) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   acceptPrice: (itemId: string) => void;
   replaceItems: (items: CartItem[]) => void;
@@ -17,6 +21,12 @@ interface CartState {
   removeProducts: (productIds: string[]) => void;
   clearCart: () => void;
   clearSignedInItems: (userId?: string) => void;
+}
+
+export interface CartVariantChange {
+  previousItems: CartItem[];
+  nextItem: CartItem;
+  requestedQuantity: number;
 }
 
 export function getCartLineId(item: Pick<CartItem, "product" | "variant_id" | "needs_selection" | "selected_size">) {
@@ -70,24 +80,48 @@ export const useCartStore = create<CartState>()(
             : current),
         };
       }),
-      resolveItem: (itemId, variant) => set((state) => {
-        const item = state.items.find((current) => current.id === itemId);
-        if (!item) return state;
-        const resolved = {
-          ...item,
-          id: `${item.product.id}::variant:${variant.id}`,
-          variant_id: variant.id,
-          needs_selection: false,
-          selected_size: variant.size,
-          selected_color: variant.color,
-        };
-        const existing = state.items.find((current) => current.id === resolved.id);
+      changeVariant: (itemId, variant) => {
+        let change: CartVariantChange | null = null;
+        set((state) => {
+          const item = state.items.find((current) => current.id === itemId);
+          if (!item || item.variant_id === variant.id) return state;
+
+          const nextId = `${item.product.id}::variant:${variant.id}`;
+          const existing = state.items.find((current) => current.id === nextId && current.id !== itemId);
+          const requestedQuantity = item.quantity + (existing?.quantity ?? 0);
+          const nextItem: CartItem = {
+            ...(existing ?? item),
+            id: nextId,
+            database_id: existing?.database_id ?? item.database_id,
+            product: { ...item.product, price: Number(item.product.price) },
+            quantity: Math.min(variant.stock_quantity, requestedQuantity),
+            variant_id: variant.id,
+            needs_selection: false,
+            selected_size: variant.size,
+            selected_color: variant.color,
+            price_at_add: Number(item.product.price),
+            active_variant_count_at_add: item.active_variant_count_at_add,
+            synced_user_id: existing?.synced_user_id ?? item.synced_user_id,
+          };
+          const previousItems = existing ? [item, existing] : [item];
+          const affectedIds = new Set(previousItems.map((current) => current.id));
+
+          change = { previousItems, nextItem, requestedQuantity };
+          return {
+            items: state.items.filter((current) => !affectedIds.has(current.id)).concat(nextItem),
+          };
+        });
+        return change;
+      },
+      rollbackVariantChange: (change) => set((state) => {
+        const affectedIds = new Set([
+          change.nextItem.id,
+          ...change.previousItems.map((item) => item.id),
+        ]);
         return {
-          items: existing
-            ? state.items
-                .filter((current) => current.id !== itemId && current.id !== resolved.id)
-                .concat({ ...existing, quantity: existing.quantity + item.quantity })
-            : state.items.map((current) => current.id === itemId ? resolved : current),
+          items: state.items
+            .filter((item) => !affectedIds.has(item.id))
+            .concat(change.previousItems),
         };
       }),
       updateQuantity: (itemId, quantity) => set((state) => ({
