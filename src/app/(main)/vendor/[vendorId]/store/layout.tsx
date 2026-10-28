@@ -51,29 +51,7 @@ export async function generateMetadata({ params }: { params: { vendorId: string 
   }
 }
 
-export async function generateStaticParams() {
-  try {
-    const supabase = createSupabaseServerClient();
-
-    // Get top 50 vendors for ISR
-    const { data: vendors } = await supabase
-      .from('users')
-      .select('id')
-      .eq('role', 'vendor')
-      .order('total_sales', { ascending: false })
-      .limit(50);
-
-    if (!vendors) return [];
-
-    return vendors.map((vendor) => ({
-      vendorId: vendor.id,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-export const revalidate = 3600; // ISR: revalidate every hour
+export const dynamic = 'force-dynamic';
 
 export default function VendorStoreLayout({ children }: VendorStoreLayoutProps) {
   return <>{children}</>;

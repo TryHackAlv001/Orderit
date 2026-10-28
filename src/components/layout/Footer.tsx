@@ -2,9 +2,9 @@ import Link from "next/link";
 
 const footerLinks = [
   { label: "About", href: "/about" },
-  { label: "Contact", href: "/contact" },
-  { label: "Start Selling on Tradeloft", href: "/sell" },
-  { label: "Help Center", href: "/help" },
+  { label: "Contact", href: "/messages" },
+  { label: "Start Selling on Tradeloft", href: "/register" },
+  { label: "Help Center", href: "/settings/safety-center" },
 ];
 
 export function Footer() {
@@ -19,9 +19,9 @@ export function Footer() {
             </p>
             <div className="flex flex-wrap gap-3 text-sm text-muted">
               <Link href="/about" className="transition-colors duration-200 hover:text-text">About</Link>
-              <Link href="/contact" className="transition-colors duration-200 hover:text-text">Contact</Link>
-              <Link href="/sell" className="transition-colors duration-200 hover:text-text">Start Selling on Tradeloft</Link>
-              <Link href="/help" className="transition-colors duration-200 hover:text-text">Help Center</Link>
+              <Link href="/messages" className="transition-colors duration-200 hover:text-text">Contact</Link>
+              <Link href="/register" className="transition-colors duration-200 hover:text-text">Start Selling on Tradeloft</Link>
+              <Link href="/settings/safety-center" className="transition-colors duration-200 hover:text-text">Help Center</Link>
             </div>
           </div>
 

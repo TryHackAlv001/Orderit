@@ -60,29 +60,6 @@ export async function generateMetadata({ params }: VendorStorePageProps): Promis
   }
 }
 
-export async function generateStaticParams() {
-  try {
-    const supabase = createSupabaseServerClient();
-
-    // Get top 50 vendors for ISR
-    const { data: vendors } = await supabase
-      .from('vendor_profiles')
-      .select('id')
-      .order('total_sales', { ascending: false })
-      .limit(50);
-
-    if (!vendors) return [];
-
-    return vendors.map((vendor) => ({
-      vendorId: vendor.id,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-export const revalidate = 3600; // ISR: revalidate every hour
-
 async function getVendorData(vendorId: string) {
   const supabase = createSupabaseServerClient();
 

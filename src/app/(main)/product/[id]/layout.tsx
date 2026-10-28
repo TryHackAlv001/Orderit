@@ -82,33 +82,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   }
 }
 
-export async function generateStaticParams() {
-  try {
-    const supabase = createSupabaseServerClient();
-
-    // Get top 100 active products for ISR
-    const { data: products, error } = await supabase
-      .from('products')
-      .select('id')
-      .eq('is_active', true)
-      .order('review_count', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error || !products) {
-      return [];
-    }
-
-    return products.map((product) => ({
-      id: product.id,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-export const revalidate = 3600; // ISR: revalidate every hour
-export const dynamicParams = true; // Allow other routes to be generated on-demand
+export const dynamic = 'force-dynamic';
 
 export default function ProductLayout({
   children,
